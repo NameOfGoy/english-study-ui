@@ -1,0 +1,35 @@
+syntax = "v1"
+
+@server (
+	group:  file
+	jwt:    Auth
+	prefix: api/v1/file
+)
+service englishstudy-api {
+	@doc "文件模块/文件上传"
+	@handler Upload
+	post /upload (FileUploadReq) returns (FileUploadResp)
+
+	@doc "文件模块/文件下载"
+	@handler Download
+	get /download (FileDownloadReq) returns (FileDownloadResp)
+}
+
+type (
+	FileUploadReq {
+		Bucket string `form:"bucket"` // 桶名, 例如: englishstudy
+		Object string `form:"object"` // 对象名, xx/xx.jpg
+	}
+	FileUploadResp {
+		CommonReply
+		Path string `json:"path"` // 文件路径, 由桶名和对象名组成, 例如: englishstudy/xx/xx.jpg
+	}
+	FileDownloadReq {
+		Path string `form:"path"` // 文件路径, 例如: englishstudy/xx/xx.jpg
+	}
+	FileDownloadResp {
+		CommonReply
+		Url string `json:"url"` // 文件url, 例如: https://englishstudy.oss-cn-beijing.aliyuncs.com/xx/xx.jpg
+	}
+)
+
