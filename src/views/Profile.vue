@@ -121,6 +121,7 @@ import { useRouter } from 'vue-router'
 import { showToast, showConfirmDialog } from 'vant'
 import { getUserInfo, updateUserInfo, updateUserAvatar } from '@/api/user'
 import { getUserInfo as getLocalUserInfo, setUserInfo, clearAllData } from '@/utils/auth'
+import { getResourceUrl } from '@/utils/request'
 
 export default {
   name: 'Profile',
@@ -144,15 +145,14 @@ export default {
     
     const defaultAvatar = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAiIGhlaWdodD0iODAiIHZpZXdCb3g9IjAgMCA4MCA4MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iNDAiIGN5PSI0MCIgcj0iNDAiIGZpbGw9IiNGNUY1RjUiLz4KPGNpcmNsZSBjeD0iNDAiIGN5PSIzMiIgcj0iMTIiIGZpbGw9IiNEREREREQiLz4KPHBhdGggZD0iTTIwIDYwQzIwIDUyLjI2ODQgMjYuMjY4NCA0NiAzNCA0Nkg0NkM1My43MzE2IDQ2IDYwIDUyLjI2ODQgNjAgNjBWNjhIMjBWNjBaIiBmaWxsPSIjREREREREIi8+Cjwvc3ZnPgo='
     
-    // 计算头像URL，拼接完整的文件服务URL
+    // 计算头像URL，使用通用的资源URL处理方法
     const avatarUrl = computed(() => {
       if (!userInfo.avatar) {
         return defaultAvatar
       }
       
-      // 拼接完整的文件服务URL：网页地址 + /api/v1/file/ + avatar路径
-      const baseUrl = window.location.origin
-      return `${baseUrl}/api/v1/file/${userInfo.avatar}`
+      // 使用通用方法处理资源URL
+      return getResourceUrl(userInfo.avatar)
     })
     
     // 加载用户信息

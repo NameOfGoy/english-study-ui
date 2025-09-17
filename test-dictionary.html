@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dictionary Test</title>
+</head>
+<body>
+    <h1>Dictionary 测试页面</h1>
+    <p>请在浏览器中访问 <a href="http://localhost:3000/dictionary" target="_blank">http://localhost:3000/dictionary</a> 来测试Dictionary页面</p>
+    <p>或者在应用中点击底部的"词典"标签</p>
+    
+    <h2>调试步骤：</h2>
+    <ol>
+        <li>确保开发服务器正在运行 (npm run dev)</li>
+        <li>在浏览器中打开 http://localhost:3000</li>
+        <li>点击底部导航栏的"词典"标签</li>
+        <li>打开浏览器开发者工具的Console面板</li>
+        <li>查看是否有Dictionary组件的调试信息输出</li>
+    </ol>
+    
+    <h2>预期的调试信息：</h2>
+    <ul>
+        <li>🔥 Dictionary.vue 脚本开始执行</li>
+        <li>🎯 Dictionary setup() 函数开始执行</li>
+        <li>🎯 initializeWordList 函数开始执行</li>
+        <li>🚀 loadWords 被调用</li>
+        <li>📡 即将调用 getWordList API...</li>
+    </ul>
+</body>
+</html>

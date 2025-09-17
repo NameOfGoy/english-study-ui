@@ -11,9 +11,12 @@
 </template>
 
 <script>
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import TabBar from '@/components/TabBar.vue'
+
+// 全局调试信息
+console.log('🔥 App.vue 脚本开始执行', new Date().toLocaleTimeString())
 
 export default {
   name: 'App',
@@ -21,11 +24,19 @@ export default {
     TabBar
   },
   setup() {
+    console.log('🎯 App setup() 函数开始执行')
     const route = useRoute()
+    
+    // 监听路由变化
+    watch(() => route.path, (newPath) => {
+      console.log('🚀 路由变化:', newPath)
+    }, { immediate: true })
     
     // 计算是否显示底部导航栏
     const showTabbar = computed(() => {
-      return route.meta.showTabbar
+      const show = route.meta.showTabbar
+      console.log('📱 是否显示TabBar:', show, '当前路由:', route.path)
+      return show
     })
     
     return {

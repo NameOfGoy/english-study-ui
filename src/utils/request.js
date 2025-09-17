@@ -127,5 +127,30 @@ resourceRequest.interceptors.response.use(
   }
 )
 
+// 通用文件资源URL处理方法
+export const getResourceUrl = (path) => {
+  if (!path) {
+    return ''
+  }
+  
+  // 如果已经是完整的URL（以http开头），直接返回
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    return path
+  }
+  
+  // 检测是否为本地调试环境
+  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  
+  if (isLocalhost) {
+    // 本地环境：去掉/api/v1/file/前缀，直接使用远程服务器地址
+    const cleanPath = path.replace(/^\/api\/v1\/file\//, '')
+    return `http://193.112.111.2:39000/${cleanPath}`
+  }
+  
+  // 生产环境：拼接当前网页地址 + 后端返回的路径（路径已包含/api/v1/file前缀）
+  const baseUrl = window.location.origin
+  return `${baseUrl}${path}`
+}
+
 export default request
 export { resourceRequest }

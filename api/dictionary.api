@@ -1,0 +1,149 @@
+syntax = "v1"
+
+@server (
+	group:  dictionary
+	jwt:    Auth
+	prefix: api/v1/dictionary
+)
+service englishstudy-api {
+	@doc "字典模块/单词列表"
+	@handler GetWordList
+	get /word/list (GetWordListReq) returns (GetWordListResp)
+
+	@doc "字典模块/单词详情"
+	@handler GetWordDetail
+	get /word/detail (GetWordDetailReq) returns (GetWordDetailResp)
+
+	@doc "字典模块/单词添加"
+	@handler AddWord
+	post /word/add (AddWordReq) returns (AddWordResp)
+
+	@doc "字典模块/单词删除"
+	@handler DeleteWord
+	post /word/delete (DeleteWordReq) returns (DeleteWordResp)
+
+	@doc "字典模块/单词更新"
+	@handler UpdateWord
+	post /word/update (UpdateWordReq) returns (UpdateWordResp)
+
+	@doc "字典模块/批量导入单词"
+	@handler ImportWord
+	post /word/import (ImportWordReq) returns (ImportWordResp)
+
+	@doc "字典模块/批量导出单词"
+	@handler ExportWord
+	post /word/export (ExportWordReq) returns (ExportWordResp)
+}
+
+type Word {
+	ID         uint       `json:"id"`
+	Word       string     `json:"word"` // 单词
+	UKPhonetic string     `json:"uk_phonetic"` // 英式音标
+	UKAudio    string     `json:"uk_audio"` // 英式音频
+	USPhonetic string     `json:"us_phonetic"` // 美式音标
+	USAudio    string     `json:"us_audio"` // 美式音频
+	Pos        []*WordPos `json:"pos"` // 词性
+}
+
+type WordPos {
+	ID          uint       `json:"id, optional"` // 自定义的词性, id 从100W开始
+	WordID      uint       `json:"word_id"` // 单词ID
+	Word        string     `json:"word, optional"` // 单词
+	Pos         int        `json:"pos, optional"` // 词性
+	Translation string     `json:"translation, optional"` // 中文翻译
+	Example     []*Example `json:"example, optional"` // 例句, 一个元素是一个句子, 通过\n分割例句和中文翻译
+	Picture     string     `json:"picture, optional"` // 图片
+	// Exchange 变化形式
+	// p     过去式（did）
+	// d     过去分词（done）
+	// i     现在分词（doing）
+	// 3     第三人称单数（does）
+	// r     形容词比较级（-er）
+	// t     形容词最高级（-est）
+	// s     名词复数形式
+	Exchange map[string]string `json:"exchange, optional"` // 变化形式, key是变化形式简写, value是变化形式的单词, 例如单词do, p:did, d:done, i:doing, 3:does
+}
+
+type Example {
+	Example     string `json:"example"` // 例句
+	Translation string `json:"translation"` // 中文翻译
+}
+
+type GetWordListReq {
+	PageReq
+	WordPrefix  string `form:"word_prefix, optional"` // 单词前缀
+	Pos         int    `form:"pos, optional"` // 词性
+	Translation string `form:"translation, optional"` // 中文翻译
+	Phonetic    string `form:"phonetic, optional"` // 音标
+}
+
+type SingleWord {
+	ID   uint   `json:"id"`
+	Word string `json:"word"` // 单词
+}
+
+type GetWordListResp {
+	CommonReply
+	PageReply
+	Data []*SingleWord `json:"data"`
+}
+
+type GetWordDetailReq {
+	Id uint `form:"id"` // 单词ID
+}
+
+type GetWordDetailResp {
+	CommonReply
+	Data Word `json:"data"`
+}
+
+type AddWordReq {
+	Word       string     `json:"word"` // 单词
+	UKPhonetic string     `json:"uk_phonetic, optional"` // 英式音标
+	UKAudio    string     `json:"uk_audio, optional"` // 英式音频
+	USPhonetic string     `json:"us_phonetic, optional"` // 美式音标
+	USAudio    string     `json:"us_audio, optional"` // 美式音频
+	Pos        []*WordPos `json:"pos, optional"` // 词性
+}
+
+type AddWordResp {
+	CommonReply
+}
+
+type DeleteWordReq {
+	ID uint `json:"id"` // 单词ID
+}
+
+type DeleteWordResp {
+	CommonReply
+}
+
+type UpdateWordReq {
+	ID         uint      `json:"id"` // 单词ID
+	Word       string    `json:"word"` // 单词
+	UKPhonetic string    `json:"uk_phonetic"` // 英式音标
+	UKAudio    string    `json:"uk_audio"` // 英式音频
+	USPhonetic string    `json:"us_phonetic"` // 美式音标
+	USAudio    string    `json:"us_audio"` // 美式音频
+	Pos        []WordPos `json:"pos"` // 词性
+}
+
+type UpdateWordResp {
+	CommonReply
+}
+
+type ImportWordReq {
+	FilePath string `json:"file_path"` // 文件路径
+}
+
+type ImportWordResp {
+	CommonReply
+}
+
+type ExportWordReq {}
+
+type ExportWordResp {
+	CommonReply
+	FilePath string `json:"file_path"` // 文件路径
+}
+
