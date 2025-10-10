@@ -47,27 +47,25 @@ export default {
     const route = useRoute()
     const router = useRouter()
     const active = ref('practice')
-    
-    // 根据当前路由设置激活的tab
-    const setActiveTab = () => {
-      const routeName = route.name
-      if (routeName === 'Practice') {
-        active.value = 'practice'
-      } else if (routeName === 'Dictionary') {
-        active.value = 'dictionary'
-      } else if (routeName === 'Profile') {
-        active.value = 'profile'
-      }
-    }
-    
+
     // 监听路由变化
-    watch(() => route.name, setActiveTab, { immediate: true })
-    
-    // tab切换事件
+    watch(() => route.path, (newPath) => {
+      let newActive = 'practice'
+      if (newPath === '/practice') {
+        newActive = 'practice'
+      } else if (newPath === '/dictionary') {
+        newActive = 'dictionary'
+      } else if (newPath === '/profile') {
+        newActive = 'profile'
+      }
+      active.value = newActive
+    }, { immediate: true })
+
     const onChange = (name) => {
       active.value = name
+      router.push(`/${name}`)
     }
-    
+
     return {
       active,
       onChange,
@@ -86,24 +84,94 @@ export default {
 .tab-icon {
   width: 24px;
   height: 24px;
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  position: relative;
+  z-index: 2;
   
   &.active {
-    transform: scale(1.1);
+    transform: scale(1.15) translateY(-2px);
+    filter: drop-shadow(0 2px 4px rgba(76, 175, 80, 0.3));
   }
 }
 
 :deep(.van-tabbar) {
-  background-color: #fff;
-  border-top: 1px solid #ebedf0;
-  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08);
+  background: white;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+  border-top: 1px solid #eee;
+  position: relative;
+  overflow: hidden;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 33.33%;
+    height: 3px;
+    background: linear-gradient(90deg, #4CAF50, #45a049);
+    transform: translateX(calc(var(--active-index, 0) * 100%));
+    transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    z-index: 1;
+  }
 }
 
 :deep(.van-tabbar-item) {
   font-size: 12px;
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  
+  .van-tabbar-item__text {
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    position: relative;
+    z-index: 2;
+  }
+  
+  &:not(.van-tabbar-item--active) {
+    .tab-icon {
+      transform: scale(1);
+      opacity: 0.7;
+    }
+    
+    .van-tabbar-item__text {
+      opacity: 0.7;
+    }
+  }
+  
+  &:active {
+    transform: scale(0.95);
+  }
 }
 
 :deep(.van-tabbar-item--active) {
   color: #1989fa;
+  
+  .van-tabbar-item__text {
+    font-weight: 600;
+    transform: translateY(-1px);
+  }
+  
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    width: 40px;
+    height: 40px;
+    background: radial-gradient(circle, rgba(76, 175, 80, 0.1) 0%, transparent 70%);
+    transform: translateX(-50%);
+    border-radius: 50%;
+    animation: ripple 0.6s ease-out;
+  }
+}
+
+@keyframes ripple {
+  0% {
+    transform: translateX(-50%) scale(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(-50%) scale(1);
+    opacity: 0;
+  }
 }
 </style>

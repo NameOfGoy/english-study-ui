@@ -1,5 +1,6 @@
 const TOKEN_KEY = 'english_study_token'
 const USER_INFO_KEY = 'english_study_user_info'
+const USER_ID_KEY = 'english_study_user_id'
 const REMEMBER_PASSWORD_KEY = 'english_study_remember_password'
 const SAVED_ACCOUNT_KEY = 'english_study_saved_account'
 const SAVED_PASSWORD_KEY = 'english_study_saved_password'
@@ -29,6 +30,19 @@ export function setUserInfo(userInfo) {
 
 export function removeUserInfo() {
   localStorage.removeItem(USER_INFO_KEY)
+}
+
+// 用户ID相关
+export function getUserId() {
+  return localStorage.getItem(USER_ID_KEY)
+}
+
+export function setUserId(userId) {
+  localStorage.setItem(USER_ID_KEY, userId.toString())
+}
+
+export function removeUserId() {
+  localStorage.removeItem(USER_ID_KEY)
 }
 
 // 记住密码相关
@@ -66,5 +80,6 @@ export function removeSavedCredentials() {
 export function clearAllData() {
   removeToken()
   removeUserInfo()
+  removeUserId()
   removeSavedCredentials()
 }

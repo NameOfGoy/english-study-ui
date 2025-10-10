@@ -62,3 +62,48 @@ export function exportWord() {
     data: {}
   })
 }
+
+// 生成词性图片
+export function generateWordPicture(wordPosId) {
+  return request({
+    url: '/v1/dictionary/word/picture',
+    method: 'post',
+    data: { word_pos_id: wordPosId }
+  })
+}
+
+// 更新词性图片
+export function updateWordPicture(data) {
+  return request({
+    url: '/v1/dictionary/word/picture/update',
+    method: 'post',
+    data
+  })
+}
+
+// 删除词性图片
+export function deleteWordPicture(wordPosId) {
+  return request({
+    url: '/v1/dictionary/word/picture/delete',
+    method: 'post',
+    data: { word_pos_id: wordPosId }
+  })
+}
+
+// 更新例句
+export function updateExample(data) {
+  return request({
+    url: '/v1/dictionary/example/update',
+    method: 'post',
+    data
+  })
+}
+
+// 生成例句
+export function generateExample(data) {
+  return request({
+    url: '/v1/dictionary/example/generate',
+    method: 'post',
+    data
+  })
+}

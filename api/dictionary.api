@@ -26,6 +26,26 @@ service englishstudy-api {
 	@handler UpdateWord
 	post /word/update (UpdateWordReq) returns (UpdateWordResp)
 
+	@doc "字典模块/词性图片生成"
+	@handler GenerateWordPicture
+	post /word/picture (GenerateWordPictureReq) returns (GenerateWordPictureResp)
+
+	@doc "字典模块/词性图片更新"
+	@handler UpdateWordPicture
+	post /word/picture/update (UpdateWordPictureReq) returns (UpdateWordPictureResp)
+
+	@doc "字典模块/词性图片删除"
+	@handler DeleteWordPicture
+	post /word/picture/delete (DeleteWordPictureReq) returns (DeleteWordPictureResp)
+
+	@doc "字典模块/例句更新"
+	@handler UpdateExample
+	post /example/update (UpdateExampleReq) returns (UpdateExampleResp)
+
+	@doc "字典模块/例句生成"
+	@handler GenerateExample
+	post /example/generate (GenerateExampleReq) returns (GenerateExampleResp)
+
 	@doc "字典模块/批量导入单词"
 	@handler ImportWord
 	post /word/import (ImportWordReq) returns (ImportWordResp)
@@ -104,6 +124,8 @@ type AddWordReq {
 	USPhonetic string     `json:"us_phonetic, optional"` // 美式音标
 	USAudio    string     `json:"us_audio, optional"` // 美式音频
 	Pos        []*WordPos `json:"pos, optional"` // 词性
+
+	IsGeneratePicture bool `json:"is_generate_picture, optional"` // 是否生成图片
 }
 
 type AddWordResp {
@@ -130,6 +152,51 @@ type UpdateWordReq {
 
 type UpdateWordResp {
 	CommonReply
+}
+
+type GenerateWordPictureReq {
+	WordPosId uint `json:"word_pos_id"` // 单词词性ID
+}
+
+type GenerateWordPictureResp {
+	CommonReply
+	Link string `json:"link"` // 图片链接
+}
+
+type UpdateWordPictureReq {
+	WordPosId uint `json:"word_pos_id"` // 单词词性ID
+	Picture string `json:"picture"` // 图片链接
+}
+
+type UpdateWordPictureResp {
+	CommonReply
+}
+
+type DeleteWordPictureReq {
+	WordPosId uint `json:"word_pos_id"` // 单词词性ID
+}
+
+type DeleteWordPictureResp {
+	CommonReply
+}
+
+type UpdateExampleReq {
+	WordPosId uint `json:"word_pos_id"` // 单词词性ID
+	Examples []*Example `json:"examples"` // 例句
+}
+
+type UpdateExampleResp {
+	CommonReply
+}
+
+type GenerateExampleReq {
+	WordPosId uint `json:"word_pos_id"` // 单词词性ID
+    Translation string `json:"translation"` // 指定某中文翻译
+}
+
+type GenerateExampleResp {
+	CommonReply
+	Example Example `json:"example"` // 例句
 }
 
 type ImportWordReq {

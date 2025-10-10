@@ -176,7 +176,7 @@ export default {
       try {
         loading.value = true
         
-        await register({
+        const response = await register({
           account: formData.account,
           password: formData.password,
           name: formData.name,
@@ -194,6 +194,7 @@ export default {
         
       } catch (error) {
         console.error('注册失败:', error)
+        // 不在这里显示错误信息，因为request.js的响应拦截器已经处理了
       } finally {
         loading.value = false
       }

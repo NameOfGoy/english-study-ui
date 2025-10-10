@@ -1,5 +1,9 @@
 <template>
-  <div class="profile-page">
+  <transition name="slide" appear>
+    <div class="profile-page" 
+         @touchstart="handleTouchStart" 
+         @touchmove="handleTouchMove" 
+         @touchend="handleTouchEnd">
     <!-- 头部信息 -->
     <div class="profile-header">
       <div class="user-avatar">
@@ -112,7 +116,8 @@
         </div>
       </div>
     </van-popup>
-  </div>
+    </div>
+  </transition>
 </template>
 
 <script>
@@ -142,6 +147,11 @@ export default {
     const editTitle = ref('')
     const editValue = ref('')
     const loading = ref(false)
+    
+    // 滑动手势相关
+    const touchStartX = ref(0)
+    const touchStartY = ref(0)
+    const isSwipeGesture = ref(false)
     
     const defaultAvatar = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAiIGhlaWdodD0iODAiIHZpZXdCb3g9IjAgMCA4MCA4MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iNDAiIGN5PSI0MCIgcj0iNDAiIGZpbGw9IiNGNUY1RjUiLz4KPGNpcmNsZSBjeD0iNDAiIGN5PSIzMiIgcj0iMTIiIGZpbGw9IiNEREREREQiLz4KPHBhdGggZD0iTTIwIDYwQzIwIDUyLjI2ODQgMjYuMjY4NCA0NiAzNCA0Nkg0NkM1My43MzE2IDQ2IDYwIDUyLjI2ODQgNjAgNjBWNjhIMjBWNjBaIiBmaWxsPSIjREREREREIi8+Cjwvc3ZnPgo='
     
@@ -203,7 +213,7 @@ export default {
           }
         }
         
-        await updateUserInfo(userInfo.id, updateData)
+        const response = await updateUserInfo(userInfo.id, updateData)
         
         // 更新本地数据
         userInfo[editField.value] = editValue.value
@@ -218,6 +228,7 @@ export default {
         
       } catch (error) {
         console.error('更新失败:', error)
+        // 不在这里显示错误信息，因为request.js的响应拦截器已经处理了
       } finally {
         loading.value = false
       }
@@ -279,16 +290,7 @@ export default {
         
       } catch (error) {
         console.error('头像上传失败:', error)
-        let errorMessage = '头像上传失败'
-        
-        if (error.message) {
-          errorMessage = error.message
-        }
-        
-        showToast({
-          message: errorMessage,
-          type: 'fail'
-        })
+        // 不在这里显示错误信息，因为request.js的响应拦截器已经处理了
       } finally {
         loading.value = false
       }
@@ -316,6 +318,44 @@ export default {
       }
     }
     
+    // 触摸事件处理
+    const handleTouchStart = (e) => {
+      touchStartX.value = e.touches[0].clientX
+      touchStartY.value = e.touches[0].clientY
+      isSwipeGesture.value = false
+    }
+
+    const handleTouchMove = (e) => {
+      if (!touchStartX.value) return
+      
+      const currentX = e.touches[0].clientX
+      const currentY = e.touches[0].clientY
+      const deltaX = currentX - touchStartX.value
+      const deltaY = currentY - touchStartY.value
+      
+      // 判断是否为水平滑动
+      if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 10) {
+        isSwipeGesture.value = true
+        e.preventDefault()
+      }
+    }
+
+    const handleTouchEnd = (e) => {
+      if (!touchStartX.value || !isSwipeGesture.value) return
+      
+      const endX = e.changedTouches[0].clientX
+      const deltaX = endX - touchStartX.value
+      
+      // 右滑切换到词典页面
+      if (deltaX > 50) {
+        router.push('/dictionary')
+      }
+      
+      touchStartX.value = 0
+      touchStartY.value = 0
+      isSwipeGesture.value = false
+    }
+    
     onMounted(() => {
       loadUserInfo()
     })
@@ -336,16 +376,50 @@ export default {
       getFieldRules,
       showAvatarPicker,
       selectAvatar,
-      handleLogout
+      handleLogout,
+      handleTouchStart,
+      handleTouchMove,
+      handleTouchEnd
     }
   }
 }
 </script>
 
 <style lang="scss" scoped>
+/* 滑动动画 */
+.slide-enter-active {
+  transition: all 0.35s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.slide-leave-active {
+  transition: all 0.25s cubic-bezier(0.55, 0.085, 0.68, 0.53);
+}
+
+.slide-enter-from {
+  transform: translateX(-100%);
+  opacity: 0;
+  filter: blur(2px);
+}
+
+.slide-leave-to {
+  transform: translateX(100%);
+  opacity: 0;
+  filter: blur(2px);
+}
+
+.slide-enter-to,
+.slide-leave-from {
+  transform: translateX(0);
+  opacity: 1;
+  filter: blur(0);
+}
+
 .profile-page {
   min-height: 100vh;
   background-color: #f8f9fa;
+  padding-bottom: 80px;
+  position: relative;
+  overflow-x: hidden;
 }
 
 .profile-header {

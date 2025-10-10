@@ -76,6 +76,7 @@ import { login } from '@/api/user'
 import { 
   setToken, 
   setUserInfo, 
+  setUserId,
   setRememberPassword, 
   setSavedAccount, 
   setSavedPassword,
@@ -121,6 +122,7 @@ export default {
         // 保存token和用户信息
         setToken(response.token)
         setUserInfo(response.data)
+        setUserId(response.data.id)
         
         // 处理记住密码
         if (rememberMe.value) {
@@ -143,6 +145,7 @@ export default {
         
       } catch (error) {
         console.error('登录失败:', error)
+        // 不在这里显示错误信息，因为request.js的响应拦截器已经处理了
       } finally {
         loading.value = false
       }
