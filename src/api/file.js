@@ -15,7 +15,7 @@ export function uploadFile(file, bucket = 'englishstudy', object) {
   formData.append('object', object)
 
   return request({
-    url: '/v1/file/upload',
+    url: '/v1/file-service/upload',
     method: 'post',
     data: formData,
     headers: {
@@ -32,7 +32,7 @@ export function uploadFile(file, bucket = 'englishstudy', object) {
  */
 export function downloadFile(path) {
   return request({
-    url: '/v1/file/download',
+    url: '/v1/file-service/download',
     method: 'get',
     params: {
       path

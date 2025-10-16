@@ -107,3 +107,53 @@ export function generateExample(data) {
     data
   })
 }
+
+// ==================== 单词状态相关接口 ====================
+
+// 获取单词状态列表
+export function getWordStatusList(word_id) {
+  return request({
+    url: '/v1/dictionary/status/list',
+    method: 'get',
+    params: {
+      word_id
+    },
+    paramsSerializer: {
+      indexes: null // This ensures arrays are serialized as param=value1&param=value2
+    }
+  })
+}
+
+// 修改单词状态
+export function updateWordStatus(data) {
+  return request({
+    url: '/v1/dictionary/status/update',
+    method: 'post',
+    data
+  })
+}
+
+// ==================== 单词标签相关接口 ====================
+
+// 获取单词标签列表
+export function getWordTagList(word_id) {
+  return request({
+    url: '/v1/dictionary/tag/list',
+    method: 'get',
+    params: {
+      word_id
+    },
+    paramsSerializer: {
+      indexes: null // This ensures arrays are serialized as param=value1&param=value2
+    }
+  })
+}
+
+// 修改单词标签
+export function updateWordTag(data) {
+  return request({
+    url: '/v1/dictionary/tag/update',
+    method: 'post',
+    data
+  })
+}

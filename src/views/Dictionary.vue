@@ -2,8 +2,24 @@
   <div class="dictionary-page" @touchstart="handleTouchStart" @touchend="handleTouchEnd">
     <!-- 头部 -->
     <div class="dictionary-header">
-      <h1 class="page-title">英语词典</h1>
-      <p class="page-subtitle">查找单词，学习词汇</p>
+      <div class="header-content">
+        <div class="header-text">
+          <h1 class="page-title">英语词典</h1>
+          <p class="page-subtitle">查找单词，学习词汇</p>
+        </div>
+        <!-- 显示模式切换栏 -->
+        <div class="display-mode-switcher">
+          <div 
+            v-for="mode in displayModes" 
+            :key="mode.value"
+            class="mode-option"
+            :class="{ active: currentDisplayMode === mode.value }"
+            @click="switchDisplayMode(mode.value)"
+          >
+            {{ mode.label }}
+          </div>
+        </div>
+      </div>
     </div>
     
     <!-- 内容区域 -->
@@ -15,7 +31,7 @@
       <van-empty v-else-if="error" image="error" :description="error" />
       
       <!-- 页面切换动画容器 -->
-      <transition :name="transitionName" mode="out-in">
+      <transition :name="transitionName" mode="out-in" @after-enter="handleAfterEnter">
         <!-- 按字母分类的单词列表 -->
         <div v-if="!selectedWord" key="word-list" class="alphabetical-word-list" ref="scrollContainer">
         
@@ -26,7 +42,9 @@
             <div class="letter-tag" :id="`letter-${currentLetter}`">
               {{ currentLetter.toUpperCase() }}
             </div>
+            <!-- 单词模式 -->
             <van-cell
+              v-if="currentDisplayMode === 'word'"
               v-for="word in wordsByLetter[currentLetter]"
               :key="word.id"
               :title="word.word"
@@ -35,12 +53,66 @@
               class="word-item"
             />
             
+            <!-- 状态模式调试信息已移除 -->
+            
+            <!-- 状态模式 -->
+            <van-cell
+              v-if="currentDisplayMode === 'status'"
+              v-for="word in getFilteredWordsForStatus(currentLetter)"
+              :key="word.id"
+              :title="word.word"
+              @click="openStatusModal(word)"
+              class="word-item status-mode clickable"
+            >
+              <template #value>
+                <div class="status-indicator" :class="getStatusClass(word.status)" v-if="word.status > 0">
+                  <span class="status-dot"></span>
+                  <span class="status-text">{{ getStatusText(word.status) }}</span>
+                </div>
+              </template>
+            </van-cell>
+            
+            <!-- 标签模式 -->
+            <van-cell
+              v-else-if="currentDisplayMode === 'tag'"
+              v-for="word in (tagWords.length > 0 ? tagWords.filter(w => w.word.charAt(0).toLowerCase() === currentLetter) : wordsByLetter[currentLetter])"
+              :key="word.id"
+              :title="word.word"
+              is-link
+              @click="openTagModal(word)"
+              class="word-item tag-mode"
+            >
+              <template #label>
+                <div class="word-tags">
+                  <span 
+                    v-for="tag in word.tags || []" 
+                    :key="tag.id"
+                    class="tag-item"
+                    :style="{ backgroundColor: tag.color }"
+                  >
+                    {{ tag.name }}
+                  </span>
+                  <span v-if="!word.tags || word.tags.length === 0" class="no-tags">暂无标签</span>
+                </div>
+              </template>
+            </van-cell>
+            
           </div>
         </div>
         
         <!-- 加载更多状态 -->
         <div v-if="loadingMore" class="global-loading">
           <van-loading size="20px" vertical>加载更多单词...</van-loading>
+        </div>
+        
+        <!-- 状态数据加载状态 -->
+        <div v-if="loadingStatusData && currentDisplayMode === 'status'" class="global-loading">
+          <van-loading size="20px" vertical>加载状态数据...</van-loading>
+        </div>
+        
+        <!-- 标签数据加载状态 -->
+        <div v-if="loadingTagData && currentDisplayMode === 'tag'" class="global-loading">
+          <van-loading size="20px" vertical>加载标签数据...</van-loading>
         </div>
         
           <!-- 已加载完毕提示 -->
@@ -310,7 +382,7 @@
     </div>
     
     <!-- 添加单词浮动按钮 -->
-    <div v-if="!selectedWord" class="add-word-fab" @click="openAddWordModal">
+    <div v-if="!selectedWord && currentDisplayMode === 'word'" class="add-word-fab" @click="openAddWordModal">
       <van-icon name="plus" size="24" />
     </div>
     
@@ -368,13 +440,171 @@
         </div>
       </div>
     </van-popup>
+    
+    <!-- 状态编辑弹窗 -->
+    <van-popup
+      v-model:show="showStatusModal"
+      position="center"
+      :style="{ width: '90%', maxWidth: '400px', borderRadius: '16px' }"
+      :close-on-click-overlay="false"
+    >
+      <div class="status-modal">
+        <div class="modal-header">
+          <h3>编辑单词状态</h3>
+          <van-icon name="cross" @click="closeStatusModal" class="close-btn" />
+        </div>
+        
+        <div class="modal-content">
+          <div class="word-info">
+            <h4>{{ currentEditWord?.word }}</h4>
+          </div>
+          
+          <van-form @submit="submitStatusUpdate">
+            <van-field name="status" label="单词状态">
+              <template #input>
+                <van-radio-group v-model="statusForm.status" direction="vertical">
+                  <van-radio name="1" class="status-radio">
+                    <template #icon="props">
+                      <div class="radio-icon" :class="{ checked: props.checked }">
+                        <span class="status-dot study"></span>
+                      </div>
+                    </template>
+                    学习
+                  </van-radio>
+                  <van-radio name="2" class="status-radio">
+                    <template #icon="props">
+                      <div class="radio-icon" :class="{ checked: props.checked }">
+                        <span class="status-dot review"></span>
+                      </div>
+                    </template>
+                    复习
+                  </van-radio>
+                  <van-radio name="3" class="status-radio">
+                    <template #icon="props">
+                      <div class="radio-icon" :class="{ checked: props.checked }">
+                        <span class="status-dot strengthen"></span>
+                      </div>
+                    </template>
+                    强化
+                  </van-radio>
+                  <van-radio name="4" class="status-radio">
+                    <template #icon="props">
+                      <div class="radio-icon" :class="{ checked: props.checked }">
+                        <span class="status-dot finish"></span>
+                      </div>
+                    </template>
+                    完成
+                  </van-radio>
+                </van-radio-group>
+              </template>
+            </van-field>
+            
+            <div class="modal-actions">
+              <van-button
+                type="default"
+                @click="closeStatusModal"
+                class="action-btn cancel-btn"
+              >
+                取消
+              </van-button>
+              <van-button
+                type="primary"
+                native-type="submit"
+                :loading="updatingStatus"
+                :disabled="updatingStatus"
+                class="action-btn submit-btn"
+              >
+                保存
+              </van-button>
+            </div>
+          </van-form>
+        </div>
+      </div>
+    </van-popup>
+    
+    <!-- 标签编辑弹窗 -->
+    <van-popup
+      v-model:show="showTagModal"
+      position="center"
+      :style="{ width: '90%', maxWidth: '400px', borderRadius: '16px' }"
+      :close-on-click-overlay="false"
+    >
+      <div class="tag-modal">
+        <div class="modal-header">
+          <h3>编辑单词标签</h3>
+          <van-icon name="cross" @click="closeTagModal" class="close-btn" />
+        </div>
+        
+        <div class="modal-content">
+          <div class="word-info">
+            <h4>{{ currentEditWord?.word }}</h4>
+            <p class="word-subtitle">Word Tags</p>
+          </div>
+          
+          <!-- 当前标签 -->
+          <div class="current-tags-section">
+            <h5>当前标签</h5>
+            <div class="current-tags">
+              <span 
+                v-for="tag in tagForm.selectedTags" 
+                :key="tag.id"
+                class="tag-item current"
+                :style="{ backgroundColor: tag.color }"
+                @click="removeTag(tag.id)"
+              >
+                {{ tag.name }}
+                <van-icon name="cross" class="remove-icon" />
+              </span>
+              <span v-if="tagForm.selectedTags.length === 0" class="no-tags">暂无标签</span>
+            </div>
+          </div>
+          
+          <!-- 预设标签 -->
+          <div class="preset-tags-section">
+            <h5>选择标签</h5>
+            <div class="preset-tags">
+              <span
+                v-for="tag in availableTags" 
+                :key="tag.id"
+                class="tag-item preset"
+                :class="{ selected: isTagSelected(tag.id) }"
+                :style="{ backgroundColor: tag.color }"
+                @click="toggleTag(tag)"
+              >
+                {{ tag.name }}
+              </span>
+            </div>
+          </div>
+          
+          <div class="modal-actions">
+            <van-button
+              type="default"
+              @click="closeTagModal"
+              class="action-btn cancel-btn"
+            >
+              取消
+            </van-button>
+            <van-button
+              type="primary"
+              @click="submitTagUpdate"
+              :loading="updatingTags"
+              :disabled="updatingTags"
+              class="action-btn submit-btn"
+            >
+              保存
+            </van-button>
+          </div>
+        </div>
+      </div>
+    </van-popup>
   </div>
 </template>
 
 <script>
 import { ref, reactive, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import { getWordList, getWordDetail, generateWordPicture, updateWordPicture, addWord } from '@/api/dictionary'
+import { getWordList, getWordDetail, generateWordPicture, updateWordPicture, addWord, getWordStatusList, updateWordStatus, getWordTagList, updateWordTag } from '@/api/dictionary'
+import { getTagList, addTag, updateTag } from '@/api/tag'
 import { uploadFile } from '@/api/file'
 import { getUserInfo, getUserId } from '@/utils/auth'
 import { getResourceUrl } from '@/utils/request'
@@ -401,13 +631,56 @@ export default {
     const error = ref('')
     const selectedWord = ref(null)
     const scrollContainer = ref(null)
+    const lastScrollTop = ref(0)
     const transitionName = ref('page-slide')
+    
+    // 显示模式切换相关
+    const currentDisplayMode = ref('word')
+    const displayModes = [
+      { label: '单词', value: 'word' },
+      { label: '状态', value: 'status' },
+      { label: '标签', value: 'tag' }
+    ]
+    
+    // 状态编辑弹窗相关
+    const showStatusModal = ref(false)
+    const currentEditWord = ref(null)
+    const updatingStatus = ref(false)
+    const statusForm = reactive({
+      status: '0'
+    })
+    
+    // 标签编辑弹窗相关
+    const showTagModal = ref(false)
+    const updatingTags = ref(false)
+    const tagForm = reactive({
+      selectedTags: []
+    })
+    
+    // 预设标签数据（模拟数据）
+    const presetTags = ref([
+      { id: 1, name: '重点词汇', color: '#ff6b6b' },
+      { id: 2, name: '高频词', color: '#4ecdc4' },
+      { id: 3, name: '易错词', color: '#45b7d1' },
+      { id: 4, name: '考试词汇', color: '#96ceb4' },
+      { id: 5, name: '日常用词', color: '#feca57' },
+      { id: 6, name: '专业词汇', color: '#ff9ff3' },
+      { id: 7, name: '口语词汇', color: '#54a0ff' },
+      { id: 8, name: '写作词汇', color: '#5f27cd' }
+    ])
 
     // 单词列表数据
     const allWords = ref([])
     const wordsByLetter = ref({})
     const hasMoreWords = ref(true)
     const loadingMore = ref(false)
+    
+    // 状态和标签数据
+    const statusWords = ref([])
+    const tagWords = ref([])
+    const availableTags = ref([])
+    const loadingStatusData = ref(false)
+    const loadingTagData = ref(false)
     
     // 分页配置
     const PAGE_SIZE = 200
@@ -504,6 +777,366 @@ export default {
       return exchangeChineseMap[exchangeKey] || exchangeKey
     }
     
+    // 生成随机标签（模拟数据）
+    const generateRandomTags = () => {
+      // 如果有真实标签数据，使用真实数据，否则使用预设数据
+      const tagsToUse = availableTags.value.length > 0 ? availableTags.value : presetTags.value
+      const tagCount = Math.floor(Math.random() * 3) + 1 // 1-3个标签
+      const shuffled = [...tagsToUse].sort(() => 0.5 - Math.random())
+      return shuffled.slice(0, tagCount)
+    }
+    
+    // 获取状态显示文本
+    const getStatusText = (status) => {
+      const statusMap = {
+        0: '未知',
+        1: '学习', 
+        2: '复习',
+        3: '强化',
+        4: '完成'
+      }
+      return statusMap[status] || '未知'
+    }
+    
+    // 获取状态颜色类
+    const getStatusClass = (status) => {
+      const classMap = {
+        0: 'unknown',
+        1: 'study',
+        2: 'review',
+        3: 'strengthen',
+        4: 'finish'
+      }
+      return classMap[status] || 'unknown'
+    }
+    
+    // 获取状态模式下的单词列表：展示全部，将有状态的排前面
+    const getFilteredWordsForStatus = (letter) => {
+      const wordsForLetter = wordsByLetter.value[letter] || []
+
+      // 将状态>0的排在前面，其余保持原顺序
+      const withStatus = []
+      const withoutStatus = []
+      for (const w of wordsForLetter) {
+        if (Number(w.status) > 0) withStatus.push(w)
+        else withoutStatus.push(w)
+      }
+
+      const result = [...withStatus, ...withoutStatus]
+
+      console.log(`✅ 状态模式 - 字母 ${letter} 列表:`, {
+        总数: result.length,
+        排前的有状态数: withStatus.length
+      })
+      return result
+    }
+    
+    // 加载状态数据
+    const loadStatusData = async () => {
+      try {
+        loadingStatusData.value = true
+        
+        // 如果已有单词数据，根据单词ID加载状态
+        if (allWords.value.length > 0) {
+          const wordIds = allWords.value.map(word => word.id)
+          console.log('🔍 准备加载状态数据，单词ID列表:', wordIds.slice(0, 5), '...(共', wordIds.length, '个)')
+          const response = await getWordStatusList(wordIds)
+          if (response.code === 0) {
+            statusWords.value = response.data || []
+            console.log('✅ 状态数据加载成功:', statusWords.value.length, '条记录')
+            console.log('📊 状态数据样例:', statusWords.value.slice(0, 3))
+            // 关联数据到单词
+            associateStatusAndTagsToWords()
+          } else {
+            console.error('❌ 状态数据加载失败:', response.message)
+            showToast(response.message || '加载状态数据失败')
+          }
+        } else {
+          // 如果没有单词数据，加载所有状态数据
+          console.log('🔍 没有单词数据，加载所有状态数据')
+          const response = await getWordStatusList()
+          if (response.code === 0) {
+            statusWords.value = response.data || []
+            console.log('✅ 所有状态数据加载成功:', statusWords.value.length, '条记录')
+            console.log('📊 状态数据样例:', statusWords.value.slice(0, 3))
+          } else {
+            console.error('❌ 状态数据加载失败:', response.message)
+            showToast(response.message || '加载状态数据失败')
+          }
+        }
+      } catch (error) {
+        console.error('加载状态数据失败:', error)
+        showToast('网络错误，请稍后重试')
+      } finally {
+        loadingStatusData.value = false
+      }
+    }
+    
+    // 加载标签数据
+    const loadTagData = async () => {
+      try {
+        loadingTagData.value = true
+        
+        // 如果已有单词数据，根据单词ID加载标签
+        if (allWords.value.length > 0) {
+          const wordIds = allWords.value.map(word => word.id)
+          
+          // 并行加载单词标签数据和可用标签列表
+          const [wordTagResponse, tagListResponse] = await Promise.all([
+            getWordTagList(wordIds),
+            getTagList()
+          ])
+          
+          if (wordTagResponse.code === 0) {
+            tagWords.value = wordTagResponse.data || []
+            console.log('单词标签数据加载成功:', tagWords.value.length)
+            // 关联数据到单词
+            associateStatusAndTagsToWords()
+          } else {
+            showToast(wordTagResponse.message || '加载单词标签数据失败')
+          }
+          
+          if (tagListResponse.code === 0) {
+            availableTags.value = tagListResponse.data || []
+            console.log('可用标签列表加载成功:', availableTags.value.length)
+          } else {
+            showToast(tagListResponse.message || '加载标签列表失败')
+          }
+        } else {
+          // 如果没有单词数据，加载所有标签数据
+          const [wordTagResponse, tagListResponse] = await Promise.all([
+            getWordTagList(),
+            getTagList()
+          ])
+          
+          if (wordTagResponse.code === 0) {
+            tagWords.value = wordTagResponse.data || []
+            console.log('单词标签数据加载成功:', tagWords.value.length)
+          } else {
+            showToast(wordTagResponse.message || '加载单词标签数据失败')
+          }
+          
+          if (tagListResponse.code === 0) {
+            availableTags.value = tagListResponse.data || []
+            console.log('可用标签列表加载成功:', availableTags.value.length)
+          } else {
+            showToast(tagListResponse.message || '加载标签列表失败')
+          }
+        }
+        
+      } catch (error) {
+        console.error('加载标签数据失败:', error)
+        showToast('网络错误，请稍后重试')
+      } finally {
+        loadingTagData.value = false
+      }
+    }
+    
+    // 显示模式切换
+    const switchDisplayMode = async (mode) => {
+      currentDisplayMode.value = mode
+      console.log(`切换显示模式到: ${mode}`)
+      
+      // 如果当前在单词详情页，切换模式时退出详情页
+      if (selectedWord.value) {
+        selectedWord.value = null
+        console.log('🔙 退出单词详情页')
+      }
+      
+      // 根据模式加载对应数据
+      if (mode === 'status') {
+        if (statusWords.value.length === 0) {
+          await loadStatusData()
+        } else {
+          // 如果已有状态数据，重新关联到单词
+          associateStatusAndTagsToWords()
+        }
+      } else if (mode === 'tag') {
+        if (tagWords.value.length === 0) {
+          await loadTagData()
+        } else {
+          // 如果已有标签数据，重新关联到单词
+          associateStatusAndTagsToWords()
+        }
+      }
+    }
+    
+    // 打开状态编辑弹窗
+    const openStatusModal = (word) => {
+      currentEditWord.value = word
+      // 如果状态为0（未知），默认选择学习状态（1）
+      statusForm.status = word.status > 0 ? word.status.toString() : '1'
+      showStatusModal.value = true
+    }
+    
+    // 关闭状态编辑弹窗
+    const closeStatusModal = () => {
+      showStatusModal.value = false
+      currentEditWord.value = null
+      statusForm.status = '1' // 默认为学习状态
+    }
+    
+    // 提交状态更新
+    const submitStatusUpdate = async () => {
+      if (!currentEditWord.value) return
+      
+      try {
+        updatingStatus.value = true
+        
+        // 调用真实API更新状态
+        const response = await updateWordStatus({
+          word_id: currentEditWord.value.id,
+          status: parseInt(statusForm.status)
+        })
+        
+        if (response.code === 0) {
+          // 先更新本地数据以立即反馈
+          const wordIndex = allWords.value.findIndex(w => w.id === currentEditWord.value.id)
+          if (wordIndex !== -1) {
+            allWords.value[wordIndex].status = parseInt(statusForm.status)
+            wordsByLetter.value = categorizeWordsByLetter(allWords.value)
+          }
+
+          // 更新 statusWords 的本地缓存
+          const targetId = currentEditWord.value.id
+          const statusIndex = statusWords.value.findIndex(w => (w.word_id ?? w.wordId) === targetId)
+          if (statusIndex !== -1) {
+            statusWords.value[statusIndex].status = parseInt(statusForm.status)
+          }
+
+          // 保存成功后，重新获取该单词的最新状态并同步到页面
+          try {
+            const refreshResp = await getWordStatusList(targetId)
+            if (refreshResp.code === 0) {
+              const refreshed = (refreshResp.data || []).find(item => (item.word_id ?? item.wordId) === targetId)
+              if (refreshed) {
+                const refreshedStatus = Number(refreshed.status ?? refreshed.state ?? 0)
+                // 更新 allWords
+                const idx = allWords.value.findIndex(w => w.id === targetId)
+                if (idx !== -1) {
+                  allWords.value[idx].status = refreshedStatus
+                }
+                // 更新 statusWords
+                const sIdx = statusWords.value.findIndex(w => (w.word_id ?? w.wordId) === targetId)
+                if (sIdx !== -1) {
+                  statusWords.value[sIdx] = { ...statusWords.value[sIdx], status: refreshedStatus }
+                } else {
+                  statusWords.value.push({ word_id: targetId, status: refreshedStatus })
+                }
+                // 重新关联与分类，确保 UI 更新
+                associateStatusAndTagsToWords()
+              }
+            }
+          } catch (e) {
+            console.warn('刷新单词状态失败，使用本地更新值:', e)
+          }
+
+          showToast('状态更新成功')
+          closeStatusModal()
+        } else {
+          showToast(response.message || '更新失败，请重试')
+        }
+      } catch (error) {
+        console.error('更新状态失败:', error)
+        showToast('网络错误，请稍后重试')
+      } finally {
+        updatingStatus.value = false
+      }
+    }
+    
+    // 打开标签编辑弹窗
+    const openTagModal = async (word) => {
+      currentEditWord.value = word
+      tagForm.selectedTags = [...(word.tags || [])]
+      
+      // 如果还没有加载可用标签，先加载
+      if (availableTags.value.length === 0) {
+        try {
+          const response = await getTagList()
+          if (response.code === 0) {
+            availableTags.value = response.data || []
+          }
+        } catch (error) {
+          console.error('加载标签列表失败:', error)
+        }
+      }
+      
+      showTagModal.value = true
+    }
+    
+    // 关闭标签编辑弹窗
+    const closeTagModal = () => {
+      showTagModal.value = false
+      currentEditWord.value = null
+      tagForm.selectedTags = []
+    }
+    
+    // 检查标签是否已选中
+    const isTagSelected = (tagId) => {
+      return tagForm.selectedTags.some(tag => tag.id === tagId)
+    }
+    
+    // 切换标签选择状态
+    const toggleTag = (tag) => {
+      const index = tagForm.selectedTags.findIndex(t => t.id === tag.id)
+      if (index > -1) {
+        tagForm.selectedTags.splice(index, 1)
+      } else {
+        tagForm.selectedTags.push(tag)
+      }
+    }
+    
+    // 移除标签
+    const removeTag = (tagId) => {
+      const index = tagForm.selectedTags.findIndex(t => t.id === tagId)
+      if (index > -1) {
+        tagForm.selectedTags.splice(index, 1)
+      }
+    }
+    
+    // 提交标签更新
+    const submitTagUpdate = async () => {
+      if (!currentEditWord.value) return
+      
+      try {
+        updatingTags.value = true
+        
+        // 调用真实API更新标签
+        const response = await updateWordTag({
+          word_id: currentEditWord.value.id,
+          tag_ids: tagForm.selectedTags.map(tag => tag.id)
+        })
+        
+        if (response.code === 0) {
+          // 更新本地数据
+          const wordIndex = allWords.value.findIndex(w => w.id === currentEditWord.value.id)
+          if (wordIndex !== -1) {
+            allWords.value[wordIndex].tags = [...tagForm.selectedTags]
+            // 重新分类单词
+            wordsByLetter.value = categorizeWordsByLetter(allWords.value)
+          }
+          
+          // 如果当前在标签模式，也更新标签数据
+          if (currentDisplayMode.value === 'tag') {
+            const tagIndex = tagWords.value.findIndex(w => w.id === currentEditWord.value.id)
+            if (tagIndex !== -1) {
+              tagWords.value[tagIndex].tags = [...tagForm.selectedTags]
+            }
+          }
+          
+          showToast('标签更新成功')
+          closeTagModal()
+        } else {
+          showToast(response.message || '更新失败，请重试')
+        }
+      } catch (error) {
+        console.error('更新标签失败:', error)
+        showToast('网络错误，请稍后重试')
+      } finally {
+        updatingTags.value = false
+      }
+    }
+    
     // 按首字母分类单词
     const categorizeWordsByLetter = (words) => {
       const categorized = {}
@@ -553,7 +1186,7 @@ export default {
         
         console.log(`✅ 单词加载成功，数据长度: ${data.length}, 总数: ${total}`)
         
-        // 更新全部单词列表
+        // 1. 首先更新单词列表并立即渲染（不添加状态和标签数据）
         if (append) {
           allWords.value = [...allWords.value, ...data]
         } else {
@@ -564,11 +1197,20 @@ export default {
         currentOffset.value += data.length
         hasMoreWords.value = currentOffset.value < total
         
-        // 重新分类单词
+        // 重新分类单词（立即渲染）
         wordsByLetter.value = categorizeWordsByLetter(allWords.value)
         
-        console.log(`📝 单词列表已更新，总数: ${allWords.value.length}`)
+        console.log(`📝 单词列表已更新并渲染，总数: ${allWords.value.length}`)
         console.log(`🔍 按字母分类结果:`, Object.keys(wordsByLetter.value).map(letter => `${letter}: ${wordsByLetter.value[letter].length}`).join(', '))
+        
+        // 2. 然后根据返回的单词ID异步加载状态和标签数据
+        if (data.length > 0) {
+          const wordIds = data.map(word => word.id)
+          console.log(`🔄 开始异步加载状态和标签数据，单词ID数组:`, wordIds)
+          
+          // 异步加载状态和标签数据，不阻塞UI渲染
+          loadStatusAndTagsByWordIds(wordIds, append)
+        }
         
       } catch (err) {
         console.error(`💥 加载单词失败:`, err)
@@ -576,6 +1218,133 @@ export default {
       } finally {
         loadingMore.value = false
       }
+    }
+    
+    // 根据单词ID数组异步加载状态和标签数据
+    const loadStatusAndTagsByWordIds = async (wordIds, append = false) => {
+      console.log(`🔄 loadStatusAndTagsByWordIds 被调用，wordIds: ${wordIds.length}, append: ${append}`)
+      
+      try {
+        // 并行调用状态和标签接口
+        const [statusResponse, tagResponse] = await Promise.all([
+          getWordStatusList(wordIds),
+          getWordTagList(wordIds)
+        ])
+        
+        console.log(`📥 状态数据响应:`, statusResponse)
+        console.log(`📥 标签数据响应:`, tagResponse)
+        
+        // 处理状态数据
+        if (statusResponse.code === 0) {
+          const statusData = statusResponse.data || []
+          console.log(`✅ 状态数据加载成功，数据长度: ${statusData.length}`)
+          
+          if (append) {
+            statusWords.value = [...statusWords.value, ...statusData]
+          } else {
+            statusWords.value = statusData
+          }
+        } else {
+          console.warn('状态数据加载失败:', statusResponse.message)
+        }
+        
+        // 处理标签数据
+        if (tagResponse.code === 0) {
+          const tagData = tagResponse.data || []
+          console.log(`✅ 标签数据加载成功，数据长度: ${tagData.length}`)
+          
+          if (append) {
+            tagWords.value = [...tagWords.value, ...tagData]
+          } else {
+            tagWords.value = tagData
+          }
+        } else {
+          console.warn('标签数据加载失败:', tagResponse.message)
+        }
+        
+        // 关联数据到单词
+        associateStatusAndTagsToWords()
+        
+      } catch (error) {
+        console.error('加载状态和标签数据失败:', error)
+        // 如果API调用失败，使用模拟数据作为后备
+        console.log('🔄 使用模拟数据作为后备')
+        generateMockStatusAndTags(wordIds, append)
+      }
+    }
+    
+    // 生成模拟状态和标签数据（作为API失败时的后备）
+    const generateMockStatusAndTags = (wordIds, append = false) => {
+      console.log(`🎭 生成模拟数据，wordIds: ${wordIds.length}`)
+      
+      // 生成模拟状态数据
+      const mockStatusData = wordIds.map(wordId => ({
+        word_id: wordId,
+        status: Math.floor(Math.random() * 5) // 0-未知，1-学习状态，2-复习状态，3-强化状态，4-完成状态
+      }))
+      
+      // 生成模拟标签数据
+      const mockTagData = wordIds.map(wordId => ({
+        word_id: wordId,
+        tags: generateRandomTags()
+      }))
+      
+      if (append) {
+        statusWords.value = [...statusWords.value, ...mockStatusData]
+        tagWords.value = [...tagWords.value, ...mockTagData]
+      } else {
+        statusWords.value = mockStatusData
+        tagWords.value = mockTagData
+      }
+      
+      // 关联数据到单词
+      associateStatusAndTagsToWords()
+    }
+    
+    // 将状态和标签数据关联到对应的单词
+    const associateStatusAndTagsToWords = () => {
+      console.log(`🔗 开始关联状态和标签数据到单词`)
+      console.log('状态数据:', statusWords.value)
+      console.log('标签数据:', tagWords.value)
+      
+      // 创建状态映射表（严格使用 word_id / wordId，不再使用 id 避免串词）
+      const statusMap = {}
+      statusWords.value.forEach(item => {
+        const wordId = item.word_id ?? item.wordId
+        const statusNum = Number(item.status ?? item.state ?? 0)
+        if (wordId != null) {
+          statusMap[wordId] = statusNum
+        }
+      })
+      
+      // 创建标签映射表（严格使用 word_id / wordId）
+      const tagMap = {}
+      tagWords.value.forEach(item => {
+        const wordId = item.word_id ?? item.wordId
+        const tags = item.tags || []
+        if (wordId != null) {
+          tagMap[wordId] = tags
+        }
+      })
+      
+      console.log('状态映射表:', statusMap)
+      console.log('标签映射表:', tagMap)
+      
+      // 更新单词数据
+      allWords.value = allWords.value.map(word => {
+        const updatedWord = {
+          ...word,
+          status: statusMap[word.id] !== undefined ? statusMap[word.id] : 0, // 默认状态为0（未知）
+          tags: tagMap[word.id] || [] // 默认无标签
+        }
+        return updatedWord
+      })
+      
+      // 重新分类单词以反映更新
+      wordsByLetter.value = categorizeWordsByLetter(allWords.value)
+      
+      console.log(`✅ 数据关联完成，已更新 ${allWords.value.length} 个单词`)
+      console.log('更新后的单词示例:', allWords.value.slice(0, 3))
     }
     
     // 加载更多单词（用于懒加载）
@@ -726,6 +1495,10 @@ export default {
     // 选择单词
     const selectWord = async (wordId) => {
       try {
+        // 记录当前列表滚动位置，便于返回时恢复
+        if (scrollContainer.value) {
+          lastScrollTop.value = scrollContainer.value.scrollTop
+        }
         // 设置进入详情页动画（页面向左滑入）
         transitionName.value = 'page-slide'
         const response = await getWordDetail(wordId)
@@ -748,6 +1521,24 @@ export default {
     // 返回列表
     const goBack = () => {
       selectedWord.value = null
+      // 在列表重新渲染后恢复滚动位置
+      nextTick(() => {
+        if (scrollContainer.value) {
+          scrollContainer.value.scrollTop = lastScrollTop.value || 0
+        }
+      })
+    }
+
+    // 过渡进入后钩子：在列表节点真正挂载并进入后恢复滚动位置
+    const handleAfterEnter = (el) => {
+      if (!el) return
+      // 只在列表节点进入时处理
+      if (el.classList && el.classList.contains('alphabetical-word-list')) {
+        // 确保 ref 指向当前列表容器
+        scrollContainer.value = el
+        // 恢复到记录的滚动位置
+        el.scrollTop = lastScrollTop.value || 0
+      }
     }
     
     // 滑动手势处理
@@ -788,13 +1579,14 @@ export default {
     const handleRightSwipe = () => {
        // 如果当前在单词详情页面，右滑返回单词列表
        if (selectedWord.value) {
-         const currentWord = selectedWord.value.word
          // 设置右滑动画（页面向右滑出）
          transitionName.value = 'page-slide-right'
          goBack()
-         // 定位到对应单词在列表中的位置
+         // 优先恢复精确滚动位置
          nextTick(() => {
-           scrollToWordInList(currentWord)
+           if (scrollContainer.value) {
+             scrollContainer.value.scrollTop = lastScrollTop.value || 0
+           }
          })
        } else {
          // 如果在单词列表页面，右滑切换到练习页面
@@ -1214,12 +2006,35 @@ export default {
       scrollContainer,
       transitionName,
       
+      // 显示模式相关
+      currentDisplayMode,
+      displayModes,
+      
+      // 状态编辑相关
+      showStatusModal,
+      currentEditWord,
+      updatingStatus,
+      statusForm,
+      
+      // 标签编辑相关
+      showTagModal,
+      updatingTags,
+      tagForm,
+      presetTags,
+      
       // 单词数据
       allWords,
       wordsByLetter,
       hasMoreWords,
       loadingMore,
       currentOffset,
+      
+      // 状态和标签数据
+      statusWords,
+      tagWords,
+      availableTags,
+      loadingStatusData,
+      loadingTagData,
       
       // 图片相关
       showPictures,
@@ -1256,8 +2071,25 @@ export default {
       // 方法
       getPosName,
       getExchangeName,
+      getStatusText,
+      getStatusClass,
+      getFilteredWordsForStatus,
+      switchDisplayMode,
       selectWord,
       goBack,
+      
+      // 状态编辑方法
+      openStatusModal,
+      closeStatusModal,
+      submitStatusUpdate,
+      
+      // 标签编辑方法
+      openTagModal,
+      closeTagModal,
+      isTagSelected,
+      toggleTag,
+      removeTag,
+      submitTagUpdate,
       openPictureModal,
       closePictureModal,
       generatePicture,
@@ -1286,7 +2118,9 @@ export default {
       handleLeftSwipe,
       
       // 工具方法
-      getResourceUrl
+      getResourceUrl,
+      // 过渡钩子
+      handleAfterEnter
     }
   }
 }
@@ -2629,5 +3463,526 @@ export default {
   left: 100%;
 }
 
+/* 显示模式切换栏样式 */
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.header-text {
+  flex: 1;
+}
+
+.display-mode-switcher {
+  display: flex;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 20px;
+  padding: 4px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  
+  .mode-option {
+    padding: 8px 16px;
+    border-radius: 16px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    color: rgba(255, 255, 255, 0.8);
+    white-space: nowrap;
+    
+    &.active {
+      background: rgba(255, 255, 255, 0.25);
+      color: white;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+    
+    &:hover:not(.active) {
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+    }
+  }
+}
+
+/* 状态和标签模式的单词项样式 */
+.word-item {
+  &.clickable {
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    
+    &:hover {
+      background-color: #f5f5f5;
+    }
+    
+    &:active {
+      background-color: #e8e8e8;
+    }
+  }
+  
+  /* 提升列表中文字的清晰度 */
+  .van-cell__title {
+    color: #1f2937; /* 更深的文字颜色提升对比度 */
+    font-weight: 600;
+    text-shadow: none;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  &.status-mode, &.tag-mode {
+    .word-main {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .word-text {
+      font-weight: 600;
+      color: #2c3e50;
+    }
+    
+    // 状态指示器样式
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      transition: all 0.3s ease;
+      white-space: nowrap; /* 防止文字换行被截断 */
+      margin-right: 22px; /* 向中间移动一些，避免靠右被遮挡 */
+      transform: translateX(-6px);
+    
+      .status-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+      }
+    
+      .status-text {
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: 0.3px;
+        transition: all 0.3s ease;
+      }
+      
+      // 未知状态 - 灰色
+      &.unknown {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border: 1px solid #dee2e6;
+        
+        .status-dot {
+          background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+        }
+        
+        .status-text {
+          color: #6c757d;
+        }
+      }
+      
+      // 学习状态 - 蓝色
+      &.study {
+        background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+        border: 1px solid #90caf9;
+        
+        .status-dot {
+          background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%);
+          box-shadow: 0 2px 8px rgba(33, 150, 243, 0.3);
+        }
+        
+        .status-text {
+          color: #1565c0;
+        }
+      }
+      
+      // 复习状态 - 橙色
+      &.review {
+        background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+        border: 1px solid #ffcc02;
+        
+        .status-dot {
+          background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+          box-shadow: 0 2px 8px rgba(255, 152, 0, 0.3);
+        }
+        
+        .status-text {
+          color: #e65100;
+        }
+      }
+      
+      // 强化状态 - 深橙色
+      &.strengthen {
+        background: linear-gradient(135deg, #fbe9e7 0%, #ffccbc 100%);
+        border: 1px solid #ff8a65;
+        
+        .status-dot {
+          background: linear-gradient(135deg, #ff5722 0%, #d84315 100%);
+          box-shadow: 0 2px 8px rgba(255, 87, 34, 0.3);
+        }
+        
+        .status-text {
+          color: #bf360c;
+        }
+      }
+      
+      // 完成状态 - 绿色
+      &.finish {
+        background: linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%);
+        border: 1px solid #81c784;
+        
+        .status-dot {
+          background: linear-gradient(135deg, #4caf50 0%, #388e3c 100%);
+          box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+        }
+        
+        .status-text {
+          color: #2e7d32;
+        }
+      }
+      
+      // 悬停效果
+      &:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        
+        .status-dot {
+          transform: scale(1.1);
+        }
+      }
+    }
+    
+    .word-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      
+      .tag-item {
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 12px;
+        color: white;
+        font-weight: 500;
+        white-space: nowrap;
+      }
+    }
+    /* 将状态指示器整体向左移动一些，避免贴边被截断（深度选择器以覆盖 Vant 内部结构） */
+    :deep(.van-cell__value) {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      overflow: visible;
+      padding-right: 18px; /* 增加内边距，整体更靠中间 */
+    }
+    /* 防止气泡被单元格右边界裁切（需作用在 cell 本身）*/
+    .word-item.status-mode {
+      overflow: visible;
+      padding-right: 8px; /* 给右侧留一点缓冲区 */
+    }
+    :deep(.van-cell) { overflow: visible; }
+  }
+}
+
+/* 状态编辑弹窗样式 */
+.status-modal {
+  background: white;
+  border-radius: 16px;
+  overflow: hidden;
+  
+  .modal-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    
+    h3 {
+      color: white;
+      font-size: 20px;
+      font-weight: 700;
+      margin: 0;
+      letter-spacing: 0.5px;
+    }
+    
+    .close-btn {
+      color: white;
+      font-size: 22px;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 50%;
+      transition: all 0.2s ease;
+      
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.15);
+      }
+    }
+  }
+  
+  .modal-content {
+    padding: 24px;
+    
+    .word-info {
+      text-align: center;
+      margin-bottom: 24px;
+      
+      h4 {
+        font-size: 24px;
+        font-weight: 700;
+        color: #2c3e50;
+        margin: 0 0 8px 0;
+      }
+      
+      .word-subtitle {
+        color: #7f8c8d;
+        font-size: 14px;
+        margin: 0;
+      }
+    }
+    
+    .status-radio {
+      margin-bottom: 16px;
+      
+      .radio-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 20px;
+        height: 20px;
+        border: 2px solid #ddd;
+        border-radius: 50%;
+        margin-right: 12px;
+        
+        &.checked {
+          border-color: #667eea;
+          background: #667eea;
+        }
+        
+        .status-dot {
+          width: 10px;
+          height: 10px;
+          border-radius: 50%;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+          
+          &.unknown {
+            background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+          }
+          
+          &.study {
+            background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%);
+            box-shadow: 0 2px 8px rgba(33, 150, 243, 0.3);
+          }
+          
+          &.review {
+            background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+            box-shadow: 0 2px 8px rgba(255, 152, 0, 0.3);
+          }
+          
+          &.strengthen {
+            background: linear-gradient(135deg, #ff5722 0%, #d84315 100%);
+            box-shadow: 0 2px 8px rgba(255, 87, 34, 0.3);
+          }
+          
+          &.finish {
+            background: linear-gradient(135deg, #4caf50 0%, #388e3c 100%);
+            box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+          }
+        }
+      }
+    }
+    
+    .modal-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 24px;
+      
+      .action-btn {
+        flex: 1;
+        height: 48px;
+        border-radius: 24px;
+        font-weight: 600;
+        font-size: 16px;
+        border: none;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        
+        &.cancel-btn {
+          background: #6c757d;
+          color: white;
+          
+          &:hover {
+            background: #5a6268;
+          }
+        }
+        
+        &.submit-btn {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          
+          &:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+          }
+        }
+      }
+    }
+  }
+}
+
+/* 标签编辑弹窗样式 */
+.tag-modal {
+  background: white;
+  border-radius: 16px;
+  overflow: hidden;
+  
+  .modal-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    
+    h3 {
+      color: white;
+      font-size: 20px;
+      font-weight: 700;
+      margin: 0;
+      letter-spacing: 0.5px;
+    }
+    
+    .close-btn {
+      color: white;
+      font-size: 22px;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 50%;
+      transition: all 0.2s ease;
+      
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.15);
+      }
+    }
+  }
+  
+  .modal-content {
+    padding: 24px;
+    
+    .word-info {
+      text-align: center;
+      margin-bottom: 24px;
+      
+      h4 {
+        font-size: 24px;
+        font-weight: 700;
+        color: #2c3e50;
+        margin: 0 0 8px 0;
+      }
+      
+      .word-subtitle {
+        color: #7f8c8d;
+        font-size: 14px;
+        margin: 0;
+      }
+    }
+    
+    .current-tags-section, .preset-tags-section {
+      margin-bottom: 20px;
+      
+      h5 {
+        font-size: 16px;
+        font-weight: 600;
+        color: #2c3e50;
+        margin: 0 0 12px 0;
+      }
+    }
+    
+    .current-tags, .preset-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      
+      .tag-item {
+        padding: 6px 12px;
+        border-radius: 16px;
+        font-size: 14px;
+        color: white;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        
+        &.current {
+          .remove-icon {
+            font-size: 12px;
+            opacity: 0.8;
+            
+            &:hover {
+              opacity: 1;
+            }
+          }
+        }
+        
+        &.preset {
+          opacity: 0.7;
+          
+          &:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+          }
+          
+          &.selected {
+            opacity: 1;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+          }
+        }
+      }
+      
+      .no-tags {
+        color: #95a5a6;
+        font-style: italic;
+        padding: 8px 0;
+      }
+    }
+    
+    .modal-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 24px;
+      
+      .action-btn {
+        flex: 1;
+        height: 48px;
+        border-radius: 24px;
+        font-weight: 600;
+        font-size: 16px;
+        border: none;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        
+        &.cancel-btn {
+          background: #6c757d;
+          color: white;
+          
+          &:hover {
+            background: #5a6268;
+          }
+        }
+        
+        &.submit-btn {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          
+          &:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+          }
+        }
+      }
+    }
+  }
+}
 
 </style>

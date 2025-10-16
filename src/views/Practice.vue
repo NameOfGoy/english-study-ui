@@ -7,20 +7,43 @@
       <!-- 头部 -->
       <div class="practice-header">
         <h1 class="page-title">英语练习</h1>
-        <p class="page-subtitle">提升你的英语水平</p>
+        <p class="page-subtitle">选择学习模式开始练习</p>
       </div>
       
       <!-- 内容区域 -->
       <div class="practice-content">
-        <div class="coming-soon">
-          <div class="icon">
-            <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
-              <circle cx="40" cy="40" r="35" stroke="#1989fa" stroke-width="3" fill="none"/>
-              <path d="M25 40L35 50L55 30" stroke="#1989fa" stroke-width="3" fill="none"/>
-            </svg>
+        <div class="mode-grid">
+          <!-- 学习 -->
+          <div class="mode-card study" @click="enterMode('study')">
+            <div class="mode-icon">📘</div>
+            <div class="mode-title">学习</div>
+            <div class="mode-desc">进入学习模式，开始新单词的学习</div>
+            <button class="mode-btn primary">进入</button>
           </div>
-          <h2>功能开发中</h2>
-          <p>练习功能正在紧张开发中，敬请期待！</p>
+
+          <!-- 复习 -->
+          <div class="mode-card review" @click="enterMode('review')">
+            <div class="mode-icon">🔁</div>
+            <div class="mode-title">复习</div>
+            <div class="mode-desc">巩固已学单词，提升记忆稳定性</div>
+            <button class="mode-btn disabled">敬请期待</button>
+          </div>
+
+          <!-- 强化 -->
+          <div class="mode-card strength" @click="enterMode('strength')">
+            <div class="mode-icon">💪</div>
+            <div class="mode-title">强化</div>
+            <div class="mode-desc">针对薄弱单词进行专注强化</div>
+            <button class="mode-btn disabled">敬请期待</button>
+          </div>
+
+          <!-- 抽查 -->
+          <div class="mode-card spot" @click="enterMode('spot')">
+            <div class="mode-icon">🎯</div>
+            <div class="mode-title">抽查</div>
+            <div class="mode-desc">随机抽查单词，检测学习效果</div>
+            <button class="mode-btn disabled">敬请期待</button>
+          </div>
         </div>
       </div>
     </div>
@@ -30,6 +53,7 @@
 <script>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { showToast } from 'vant'
 
 export default {
   name: 'Practice',
@@ -80,11 +104,21 @@ export default {
       touchStartY.value = 0
       isSwipeGesture.value = false
     }
+
+    // 进入不同练习模式（先实现学习模式）
+    const enterMode = (mode) => {
+      if (mode === 'study') {
+        router.push('/practice/study')
+      } else {
+        showToast({ message: '功能开发中，敬请期待', type: 'primary' })
+      }
+    }
     
     return {
       handleTouchStart,
       handleTouchMove,
-      handleTouchEnd
+      handleTouchEnd,
+      enterMode
     }
   }
 }
@@ -146,26 +180,45 @@ export default {
 
 .practice-content {
   padding: 40px 20px;
-  
-  .coming-soon {
+
+  .mode-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+
+  .mode-card {
+    background: white;
+    border-radius: 16px;
+    padding: 16px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.08);
     text-align: center;
-    padding: 60px 20px;
-    
-    .icon {
-      margin-bottom: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 160px;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+    &:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(0,0,0,0.1); }
+
+    .mode-icon { font-size: 28px; }
+    .mode-title { font-size: 18px; font-weight: 700; color: #323233; margin-top: 8px; }
+    .mode-desc { font-size: 13px; color: #646566; margin-top: 4px; }
+
+    .mode-btn {
+      margin-top: 12px;
+      width: 100%;
+      height: 36px;
+      border-radius: 18px;
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
     }
-    
-    h2 {
-      font-size: 20px;
-      color: #323233;
-      margin-bottom: 12px;
-    }
-    
-    p {
-      font-size: 14px;
-      color: #646566;
-      line-height: 1.5;
-    }
+
+    .mode-btn.primary { background: linear-gradient(135deg, #1989fa 0%, #1976d2 100%); color: white; }
+    .mode-btn.disabled { background: #f0f0f0; color: #969799; cursor: not-allowed; }
   }
 }
 </style>

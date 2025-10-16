@@ -37,6 +37,16 @@ const routes = [
     }
   },
   {
+    path: '/practice/study',
+    name: 'PracticeStudy',
+    component: () => import('@/views/PracticeStudy.vue'),
+    meta: {
+      title: '学习模式',
+      requiresAuth: true,
+      showTabbar: true
+    }
+  },
+  {
     path: '/dictionary',
     name: 'Dictionary',
     component: () => import('@/views/Dictionary.vue'),
