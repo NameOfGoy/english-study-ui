@@ -5,7 +5,7 @@
       <div class="header-content">
         <div class="header-text">
           <h1 class="page-title">英语词典</h1>
-          <p class="page-subtitle">查找单词，学习词汇</p>
+          <p class="page-subtitle">学习及查找词语</p>
         </div>
         <!-- 显示模式切换栏 -->
         <div class="display-mode-switcher">
@@ -18,6 +18,19 @@
           >
             {{ mode.label }}
           </div>
+        </div>
+        <!-- 右侧书签切换：单词 / 短语 -->
+        <div class="resource-switcher">
+          <div 
+            class="bookmark-option" 
+            :class="{ active: resourceType === 'word' }" 
+            @click="switchResourceType('word')"
+          >单词</div>
+          <div 
+            class="bookmark-option" 
+            :class="{ active: resourceType === 'phrase' }" 
+            @click="switchResourceType('phrase')"
+          >短语</div>
         </div>
       </div>
     </div>
@@ -32,19 +45,19 @@
       
       <!-- 页面切换动画容器 -->
       <transition :name="transitionName" mode="out-in" @after-enter="handleAfterEnter">
-        <!-- 按字母分类的单词列表 -->
-        <div v-if="!selectedWord" key="word-list" class="alphabetical-word-list" ref="scrollContainer">
+        <!-- 资源列表（按字母分类） -->
+        <div v-if="!selectedWord && !selectedPhrase" key="resource-list" class="alphabetical-word-list" ref="scrollContainer">
         
-        <div v-for="currentLetter in Object.keys(wordsByLetter).filter(letter => wordsByLetter[letter] && wordsByLetter[letter].length > 0)" :key="currentLetter" class="letter-group">
+        <div v-for="currentLetter in lettersToLoop" :key="currentLetter" class="letter-group">
           <!-- 该字母下的单词列表 -->
           <div class="letter-words">
             <!-- 字母标签 -->
             <div class="letter-tag" :id="`letter-${currentLetter}`">
               {{ currentLetter.toUpperCase() }}
             </div>
-            <!-- 单词模式 -->
+            <!-- 列表模式：根据书签展示单词或短语 -->
             <van-cell
-              v-if="currentDisplayMode === 'word'"
+              v-if="resourceType === 'word' && currentDisplayMode === 'word'"
               v-for="word in wordsByLetter[currentLetter]"
               :key="word.id"
               :title="word.word"
@@ -52,12 +65,27 @@
               @click="selectWord(word.id)"
               class="word-item"
             />
+            <van-cell
+              v-else-if="resourceType === 'phrase' && currentDisplayMode === 'word'"
+              v-for="item in (phrasesByLetter[currentLetter] || [])"
+              :key="item.id"
+              :title="item.word"
+              is-link
+              @click="selectPhrase(item.id)"
+              class="word-item phrase-mode"
+            >
+              <template #label>
+                <div class="phrase-subtitle">
+                  <!-- {{ item.translation || '暂无翻译' }} -->
+                </div>
+              </template>
+            </van-cell>
             
             <!-- 状态模式调试信息已移除 -->
             
-            <!-- 状态模式 -->
+            <!-- 状态模式：单词 -->
             <van-cell
-              v-if="currentDisplayMode === 'status'"
+              v-if="currentDisplayMode === 'status' && resourceType === 'word'"
               v-for="word in getFilteredWordsForStatus(currentLetter)"
               :key="word.id"
               :title="word.word"
@@ -71,10 +99,34 @@
                 </div>
               </template>
             </van-cell>
-            
-            <!-- 标签模式 -->
+
+            <!-- 状态模式：短语 -->
             <van-cell
-              v-else-if="currentDisplayMode === 'tag'"
+              v-else-if="currentDisplayMode === 'status' && resourceType === 'phrase'"
+              v-for="item in getFilteredPhrasesForStatus(currentLetter)"
+              :key="item.id"
+              :title="item.word"
+              is-link
+              clickable
+              @click="openStatusModal(item)"
+              class="word-item status-mode clickable phrase-mode"
+            >
+              <template #label>
+                <div class="phrase-subtitle">
+                  <!-- {{ item.translation || '暂无翻译' }} -->
+                </div>
+              </template>
+              <template #value>
+                <div class="status-indicator" :class="getStatusClass(item.status)" v-if="item.status > 0">
+                  <span class="status-dot"></span>
+                  <span class="status-text">{{ getStatusText(item.status) }}</span>
+                </div>
+              </template>
+            </van-cell>
+            
+            <!-- 标签模式：单词 -->
+            <van-cell
+              v-else-if="currentDisplayMode === 'tag' && resourceType === 'word'"
               v-for="word in (tagWords.length > 0 ? tagWords.filter(w => w.word.charAt(0).toLowerCase() === currentLetter) : wordsByLetter[currentLetter])"
               :key="word.id"
               :title="word.word"
@@ -96,13 +148,43 @@
                 </div>
               </template>
             </van-cell>
+
+            <!-- 标签模式：短语 -->
+            <van-cell
+              v-else-if="currentDisplayMode === 'tag' && resourceType === 'phrase'"
+              v-for="item in (phrasesByLetter[currentLetter] || [])"
+              :key="item.id"
+              :title="item.word"
+              is-link
+              @click="openTagModal(item)"
+              class="word-item tag-mode phrase-mode"
+            >
+              <template #label>
+                <div class="word-tags">
+                  <span 
+                    v-for="tag in item.tags || []" 
+                    :key="tag.id"
+                    class="tag-item"
+                    :style="{ backgroundColor: tag.color }"
+                  >
+                    {{ tag.name }}
+                  </span>
+                  <span v-if="!item.tags || item.tags.length === 0" class="no-tags">暂无标签</span>
+                </div>
+              </template>
+            </van-cell>
+            
+
             
           </div>
         </div>
         
         <!-- 加载更多状态 -->
-        <div v-if="loadingMore" class="global-loading">
+        <div v-if="loadingMore && currentDisplayMode === 'word'" class="global-loading">
           <van-loading size="20px" vertical>加载更多单词...</van-loading>
+        </div>
+        <div v-if="loadingMorePhrases && resourceType === 'phrase' && currentDisplayMode === 'word'" class="global-loading">
+          <van-loading size="20px" vertical>加载更多短语...</van-loading>
         </div>
         
         <!-- 状态数据加载状态 -->
@@ -114,15 +196,21 @@
         <div v-if="loadingTagData && currentDisplayMode === 'tag'" class="global-loading">
           <van-loading size="20px" vertical>加载标签数据...</van-loading>
         </div>
+        <div v-if="loadingPhraseData && resourceType === 'phrase' && currentDisplayMode === 'word'" class="global-loading">
+          <van-loading size="20px" vertical>加载短语数据...</van-loading>
+        </div>
         
           <!-- 已加载完毕提示 -->
-          <div v-if="!hasMoreWords && allWords.length > 0" class="load-complete">
+          <div v-if="!hasMoreWords && allWords.length > 0 && currentDisplayMode === 'word'" class="load-complete">
             <van-divider>已加载全部单词</van-divider>
+          </div>
+          <div v-if="!hasMorePhrases && phraseList.length > 0 && currentDisplayMode === 'phrase'" class="load-complete">
+            <van-divider>已加载全部短语</van-divider>
           </div>
         </div>
         
         <!-- 单词详情卡片 -->
-        <div v-else key="word-detail" class="word-detail">
+        <div v-else-if="selectedWord" key="word-detail" class="word-detail">
         <!-- 自定义美化导航栏 -->
         <div class="custom-nav-bar">
           <div class="nav-left" @click="goBack">
@@ -242,6 +330,87 @@
           </template>
         </van-card>
         </div>
+
+        <div v-else-if="selectedPhrase" key="phrase-detail" class="phrase-detail">
+          <div class="custom-nav-bar">
+            <div class="nav-left" @click="goBack">
+              <div class="back-btn">
+                <svg class="back-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span class="back-text">返回</span>
+              </div>
+            </div>
+            <div class="nav-center">
+              <h1 class="nav-title">短语详情</h1>
+              <div class="nav-subtitle">Phrase Details</div>
+            </div>
+            <div class="nav-right"></div>
+          </div>
+
+          <van-card class="word-card">
+            <template #title>
+              <div class="word-title">
+                <h2>{{ selectedPhrase.word }}</h2>
+              </div>
+            </template>
+
+            <template #desc>
+              <div class="phrase-detail-section">
+                <div v-if="selectedPhrase.pronunciation" class="phrase-pronunciation-section">
+                  <h3 class="phrase-section-title">发音</h3>
+                  <div class="pronunciation-row">
+                    <div class="audio-btn-container">
+                      <van-button
+                        size="mini"
+                        type="default"
+                        @click="playAudio(selectedPhrase.pronunciation, 'phrase')"
+                        class="play-btn"
+                        :class="{ 'playing': audioPlaying['phrase'] }"
+                      >
+                        🔊
+                      </van-button>
+                      <div v-if="audioPlaying['phrase']" class="sound-waves">
+                        <div class="wave wave-1"></div>
+                        <div class="wave wave-2"></div>
+                        <div class="wave wave-3"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="phrase-translation-section">
+                  <h3 class="phrase-section-title">释义</h3>
+                  <p class="definition-text">{{ selectedPhrase.translation || '暂无释义' }}</p>
+                </div>
+
+                <div class="picture-action">
+                  <van-button
+                    size="small"
+                    round
+                    type="primary"
+                    class="picture-toggle-btn"
+                    icon="photo-o"
+                    @click="openPhrasePictureModal"
+                  >
+                    查看图片
+                  </van-button>
+                </div>
+
+                <div v-if="selectedPhrase.example && selectedPhrase.example.length" class="examples-section">
+                  <h4 class="examples-title">例句</h4>
+                  <div v-for="(example, exIndex) in selectedPhrase.example" :key="exIndex" class="example-item">
+                    <p class="example-text">{{ example.example }}</p>
+                    <p class="example-translation">{{ example.translation }}</p>
+                  </div>
+                </div>
+
+                <div v-if="selectedPhrase.picture" class="picture-section">
+                  <van-image :src="getResourceUrl(selectedPhrase.picture)" fit="cover" class="modal-picture" />
+                </div>
+              </div>
+            </template>
+          </van-card>
+        </div>
       </transition>
     </div>
     
@@ -253,7 +422,7 @@
     >
       <div class="picture-modal">
         <div class="modal-header">
-          <h3>词性图片</h3>
+          <h3>{{ selectedWord ? '词性图片' : '短语图片' }}</h3>
           <van-icon name="cross" @click="closePictureModal" class="close-btn" />
         </div>
         
@@ -355,6 +524,36 @@
         </div>
       </div>
     </van-popup>
+    <van-popup
+      v-model:show="showSearchModal"
+      position="center"
+      :style="{ width: '92%', maxWidth: '420px', borderRadius: '16px' }"
+      :close-on-click-overlay="false"
+    >
+      <div class="search-modal">
+        <div class="modal-header">
+          <h3>搜索</h3>
+          <van-icon name="cross" @click="closeSearchModal" class="close-btn" />
+        </div>
+        <div class="modal-content">
+          <van-field v-model="searchQuery" label="前缀" placeholder="输入英文前缀" clearable @input="onSearchInput" />
+          <div class="search-results">
+            <van-loading v-if="searching" size="20px" vertical>搜索中...</van-loading>
+            <van-empty v-else-if="searchQuery && searchResults.length === 0" description="暂无结果" />
+            <div v-else>
+              <van-cell
+                v-for="item in searchResults"
+                :key="item.id"
+                :title="item.word"
+                is-link
+                @click="selectSearchResult(item)"
+                class="word-item"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </van-popup>
     
     <!-- 小型弹出提示 -->
     <div v-if="showActionModal" class="action-tooltip" @click.self="restorePicture">
@@ -382,8 +581,18 @@
     </div>
     
     <!-- 添加单词浮动按钮 -->
-    <div v-if="!selectedWord && currentDisplayMode === 'word'" class="add-word-fab" @click="openAddWordModal">
+    <div v-if="!selectedWord && resourceType === 'word' && currentDisplayMode === 'word'" class="add-word-fab" @click="openAddWordModal">
       <van-icon name="plus" size="24" />
+    </div>
+    <div v-if="!selectedWord && !selectedPhrase && resourceType === 'word' && currentDisplayMode === 'word'" class="search-fab" @click="openSearchModal">
+      <van-icon name="search" size="22" />
+    </div>
+    <!-- 添加短语浮动按钮 -->
+    <div v-if="!selectedWord && !selectedPhrase && resourceType === 'phrase' && currentDisplayMode === 'word'" class="add-word-fab" @click="openAddPhraseModal">
+      <van-icon name="plus" size="24" />
+    </div>
+    <div v-if="!selectedWord && !selectedPhrase && resourceType === 'phrase' && currentDisplayMode === 'word'" class="search-fab" @click="openSearchModal">
+      <van-icon name="search" size="22" />
     </div>
     
     <!-- 添加单词弹窗 -->
@@ -441,6 +650,59 @@
       </div>
     </van-popup>
     
+    <!-- 添加短语弹窗 -->
+    <van-popup
+      v-model:show="showAddPhraseModal"
+      position="center"
+      :style="{ width: '90%', maxWidth: '400px', borderRadius: '16px' }"
+      :close-on-click-overlay="false"
+    >
+      <div class="add-word-modal">
+        <div class="modal-header">
+          <h3>添加短语</h3>
+          <van-icon name="cross" @click="closeAddPhraseModal" class="close-btn" />
+        </div>
+        
+        <div class="modal-content">
+          <van-form @submit="submitAddPhrase">
+            <van-field
+              v-model="addPhraseForm.phrase"
+              name="phrase"
+              label="短语"
+              placeholder="请输入英文短语"
+              :rules="[{ required: true, message: '请输入短语' }]"
+              clearable
+            />
+            
+            <van-field name="generatePhrasePicture" label="生成图片">
+              <template #input>
+                <van-checkbox v-model="addPhraseForm.isGeneratePicture">自动生成图片</van-checkbox>
+              </template>
+            </van-field>
+            
+            <div class="modal-actions">
+              <van-button
+                type="default"
+                @click="closeAddPhraseModal"
+                class="action-btn cancel-btn"
+              >
+                取消
+              </van-button>
+              <van-button
+                type="primary"
+                native-type="submit"
+                :loading="addingPhrase"
+                :disabled="addingPhrase"
+                class="action-btn submit-btn"
+              >
+                添加
+              </van-button>
+            </div>
+          </van-form>
+        </div>
+      </div>
+    </van-popup>
+    
     <!-- 状态编辑弹窗 -->
     <van-popup
       v-model:show="showStatusModal"
@@ -450,7 +712,7 @@
     >
       <div class="status-modal">
         <div class="modal-header">
-          <h3>编辑单词状态</h3>
+          <h3>{{ currentEditType === 'phrase' ? '编辑短语状态' : '编辑单词状态' }}</h3>
           <van-icon name="cross" @click="closeStatusModal" class="close-btn" />
         </div>
         
@@ -460,7 +722,7 @@
           </div>
           
           <van-form @submit="submitStatusUpdate">
-            <van-field name="status" label="单词状态">
+            <van-field name="status" :label="currentEditType === 'phrase' ? '短语状态' : '单词状态'">
               <template #input>
                 <van-radio-group v-model="statusForm.status" direction="vertical">
                   <van-radio name="1" class="status-radio">
@@ -597,15 +859,103 @@
         </div>
       </div>
     </van-popup>
+
+    <!-- 短语编辑弹窗 -->
+    <van-popup
+      v-model:show="showPhraseModal"
+      position="center"
+      :style="{ width: '90%', maxWidth: '500px', borderRadius: '16px' }"
+      :close-on-click-overlay="false"
+    >
+      <div class="phrase-modal">
+        <div class="modal-header">
+          <h3>{{ editingPhrase ? '编辑短语' : '添加短语' }}</h3>
+          <van-icon name="cross" @click="closePhraseModal" class="close-btn" />
+        </div>
+        
+        <div class="modal-content">
+          <van-form @submit="submitPhrase">
+            <van-field
+              v-model="phraseForm.phrase"
+              name="phrase"
+              label="短语"
+              placeholder="请输入英文短语"
+              :rules="[{ required: true, message: '请输入短语' }]"
+              clearable
+            />
+            
+            <van-field
+              v-model="phraseForm.translation"
+              name="translation"
+              label="中文翻译"
+              type="textarea"
+              placeholder="请输入中文释义"
+              autosize
+              clearable
+            />
+            
+            <van-field
+              v-model="phraseForm.pronunciation"
+              name="pronunciation"
+              label="发音"
+              placeholder="如 /ˈfreɪz/"
+              clearable
+            />
+            
+            <div class="examples-section">
+              <h5>例句</h5>
+              <div v-for="(ex, idx) in phraseForm.example" :key="idx" class="example-row">
+                <van-field v-model="ex.example" :name="`example-${idx}`" label="英文" placeholder="示例英文句子" />
+                <van-field v-model="ex.translation" :name="`translation-${idx}`" label="中文" placeholder="对应中文翻译" />
+                <van-button size="small" type="danger" plain @click="removeExample(idx)">删除</van-button>
+              </div>
+              <van-button size="small" type="primary" plain @click="addExample">添加例句</van-button>
+            </div>
+            
+            <div class="picture-section">
+              <h5>图片</h5>
+              <div class="picture-preview" v-if="phraseForm.picture">
+                <img :src="getResourceUrl(phraseForm.picture)" alt="短语图片" />
+              </div>
+              <div class="picture-actions">
+                <van-button size="small" type="primary" plain @click="selectPhraseImage">选择并上传图片</van-button>
+                <van-checkbox v-model="phraseForm.isGeneratePicture">自动生成图片</van-checkbox>
+              </div>
+            </div>
+            
+            <div class="modal-actions">
+              <van-button
+                type="default"
+                @click="closePhraseModal"
+                class="action-btn cancel-btn"
+              >
+                取消
+              </van-button>
+              <van-button
+                type="primary"
+                native-type="submit"
+                class="action-btn submit-btn"
+              >
+                {{ editingPhrase ? '保存' : '添加' }}
+              </van-button>
+            </div>
+          </van-form>
+          
+          <div v-if="editingPhrase" class="danger-zone">
+            <van-button type="danger" plain @click="deletePhrase">删除该短语</van-button>
+          </div>
+        </div>
+      </div>
+    </van-popup>
   </div>
 </template>
 
 <script>
-import { ref, reactive, onMounted, nextTick } from 'vue'
+import { ref, reactive, onMounted, nextTick, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { getWordList, getWordDetail, generateWordPicture, updateWordPicture, addWord, getWordStatusList, updateWordStatus, getWordTagList, updateWordTag } from '@/api/dictionary'
+import { getWordList, getWordDetail, generateWordPicture, updateWordPicture, addWord, getWordStatusList, updateWordStatus, getWordTagList, updateWordTag, getWordPhraseList, getWordPhraseDetail, addWordPhrase, updateWordPhrase, deleteWordPhrase, generatePhrasePicture, updatePhrasePicture } from '@/api/dictionary'
 import { getTagList, addTag, updateTag } from '@/api/tag'
-import { uploadFile } from '@/api/file'
+import { uploadFile, selectFiles } from '@/api/file'
 import { getUserInfo, getUserId } from '@/utils/auth'
 import { getResourceUrl } from '@/utils/request'
 import { showToast } from 'vant'
@@ -630,21 +980,24 @@ export default {
     const globalLoading = ref(false)
     const error = ref('')
     const selectedWord = ref(null)
+    const selectedPhrase = ref(null)
     const scrollContainer = ref(null)
     const lastScrollTop = ref(0)
     const transitionName = ref('page-slide')
     
     // 显示模式切换相关
+    const resourceType = ref('word') // 'word' 或 'phrase'
     const currentDisplayMode = ref('word')
-    const displayModes = [
-      { label: '单词', value: 'word' },
+    const displayModes = computed(() => ([
+      { label: resourceType.value === 'word' ? '单词' : '短语', value: 'word' },
       { label: '状态', value: 'status' },
       { label: '标签', value: 'tag' }
-    ]
+    ]))
     
     // 状态编辑弹窗相关
     const showStatusModal = ref(false)
     const currentEditWord = ref(null)
+    const currentEditType = ref('word')
     const updatingStatus = ref(false)
     const statusForm = reactive({
       status: '0'
@@ -675,12 +1028,46 @@ export default {
     const hasMoreWords = ref(true)
     const loadingMore = ref(false)
     
-    // 状态和标签数据
+    // 状态、标签、短语数据
     const statusWords = ref([])
     const tagWords = ref([])
+    const statusPhrases = ref([])
+    const tagPhrases = ref([])
     const availableTags = ref([])
     const loadingStatusData = ref(false)
     const loadingTagData = ref(false)
+    
+    // 短语数据
+    const phraseList = ref([])
+    const phrasesByLetter = ref({})
+    const loadingPhraseData = ref(false)
+    // 短语分页与加载更多
+    const hasMorePhrases = ref(true)
+    const phraseOffset = ref(0)
+    const loadingMorePhrases = ref(false)
+    // 按模式选择字母循环
+    const lettersToLoop = computed(() => {
+      const map = resourceType.value === 'phrase' ? phrasesByLetter.value : wordsByLetter.value
+      return Object.keys(map)
+        .filter(letter => map[letter] && map[letter].length > 0)
+        .sort((a, b) => {
+          if (a === '#') return 1
+          if (b === '#') return -1
+          return a.localeCompare(b)
+        })
+    })
+    // 短语编辑弹窗相关
+    const showPhraseModal = ref(false)
+    const editingPhrase = ref(false)
+    const phraseForm = reactive({
+      id: null,
+      phrase: '',
+      translation: '',
+      pronunciation: '',
+      example: [],
+      picture: '',
+      isGeneratePicture: false
+    })
     
     // 分页配置
     const PAGE_SIZE = 200
@@ -707,6 +1094,21 @@ export default {
       word: '',
       isGeneratePicture: false
     })
+    
+    // 添加短语相关
+    const showAddPhraseModal = ref(false)
+    const addingPhrase = ref(false)
+    const addPhraseForm = reactive({
+      phrase: '',
+      isGeneratePicture: false
+    })
+    const showSearchModal = ref(false)
+    const searchQuery = ref('')
+    const searchResults = ref([])
+    const searching = ref(false)
+    let searchDebounceTimer = null
+    const searchActive = ref(false)
+    const searchType = ref('word')
     
     // 图片上传相关
     const showCropModal = ref(false)
@@ -932,38 +1334,92 @@ export default {
       }
     }
     
-    // 显示模式切换
+    // 显示模式切换（根据右侧书签选择资源类型）
     const switchDisplayMode = async (mode) => {
       currentDisplayMode.value = mode
-      console.log(`切换显示模式到: ${mode}`)
+      // 退出详情页
+      selectedWord.value = null
+      selectedPhrase.value = null
       
-      // 如果当前在单词详情页，切换模式时退出详情页
-      if (selectedWord.value) {
-        selectedWord.value = null
-        console.log('🔙 退出单词详情页')
-      }
-      
-      // 根据模式加载对应数据
       if (mode === 'status') {
-        if (statusWords.value.length === 0) {
-          await loadStatusData()
+        if (resourceType.value === 'word') {
+          if (statusWords.value.length === 0) {
+            await loadStatusData()
+          } else {
+            associateStatusAndTagsToWords()
+          }
         } else {
-          // 如果已有状态数据，重新关联到单词
-          associateStatusAndTagsToWords()
+          // 短语：加载基础数据与状态数据
+          if (phraseList.value.length === 0) {
+            await loadPhrases()
+          }
+          await loadPhraseStatusData()
         }
       } else if (mode === 'tag') {
-        if (tagWords.value.length === 0) {
-          await loadTagData()
+        if (resourceType.value === 'word') {
+          if (tagWords.value.length === 0) {
+            await loadTagData()
+          } else {
+            associateStatusAndTagsToWords()
+          }
         } else {
-          // 如果已有标签数据，重新关联到单词
-          associateStatusAndTagsToWords()
+          if (phraseList.value.length === 0) {
+            await loadPhrases()
+          }
+          await loadPhraseTagData()
+        }
+      } else if (mode === 'word') {
+        if (resourceType.value === 'word') {
+          if (wordList.value.length === 0) {
+            await initializeWordList()
+          } else {
+            classifyWordsByLetter(wordList.value)
+          }
+        } else {
+          if (phraseList.value.length === 0) {
+            await loadPhrases()
+          }
         }
       }
     }
     
+    // 资源书签切换
+    const switchResourceType = async (type) => {
+      if (resourceType.value === type) return
+      resourceType.value = type
+      selectedWord.value = null
+      selectedPhrase.value = null
+      transitionName.value = 'list-slide'
+      await nextTick()
+      if (scrollContainer.value && lastScrollTop.value) {
+        scrollContainer.value.scrollTop = lastScrollTop.value
+      }
+      if (type === 'word') {
+        if (wordList.value.length === 0) {
+          await initializeWordList()
+        } else if (currentDisplayMode.value === 'word') {
+          classifyWordsByLetter(wordList.value)
+        } else if (currentDisplayMode.value === 'status') {
+          if (statusWords.value.length === 0) await loadStatusData()
+          else associateStatusAndTagsToWords()
+        } else if (currentDisplayMode.value === 'tag') {
+          if (tagWords.value.length === 0) await loadTagData()
+          else associateStatusAndTagsToWords()
+        }
+      } else {
+        if (phraseList.value.length === 0) await loadPhrases()
+        if (currentDisplayMode.value === 'status') {
+          await loadPhraseStatusData()
+        } else if (currentDisplayMode.value === 'tag') {
+          await loadPhraseTagData()
+        }
+      }
+    }
+
     // 打开状态编辑弹窗
     const openStatusModal = (word) => {
       currentEditWord.value = word
+      currentEditType.value = resourceType.value
       // 如果状态为0（未知），默认选择学习状态（1）
       statusForm.status = word.status > 0 ? word.status.toString() : '1'
       showStatusModal.value = true
@@ -982,53 +1438,79 @@ export default {
       
       try {
         updatingStatus.value = true
+
+        const targetId = currentEditWord.value.id
+        const typeNum = currentEditType.value === 'phrase' ? 2 : 1
         
-        // 调用真实API更新状态
+        // 调用真实API更新状态（根据资源类型传递 word_type）
         const response = await updateWordStatus({
-          word_id: currentEditWord.value.id,
-          status: parseInt(statusForm.status)
+          word_id: targetId,
+          status: parseInt(statusForm.status),
+          word_type: typeNum
         })
         
         if (response.code === 0) {
           // 先更新本地数据以立即反馈
-          const wordIndex = allWords.value.findIndex(w => w.id === currentEditWord.value.id)
-          if (wordIndex !== -1) {
-            allWords.value[wordIndex].status = parseInt(statusForm.status)
-            wordsByLetter.value = categorizeWordsByLetter(allWords.value)
+          if (currentEditType.value === 'word') {
+            const wordIndex = allWords.value.findIndex(w => w.id === targetId)
+            if (wordIndex !== -1) {
+              allWords.value[wordIndex].status = parseInt(statusForm.status)
+              wordsByLetter.value = categorizeWordsByLetter(allWords.value)
+            }
+            // 更新 statusWords 的本地缓存
+            const statusIndex = statusWords.value.findIndex(w => (w.word_id ?? w.wordId) === targetId)
+            if (statusIndex !== -1) {
+              statusWords.value[statusIndex].status = parseInt(statusForm.status)
+            }
+          } else {
+            const phraseIndex = phraseList.value.findIndex(p => p.id === targetId)
+            if (phraseIndex !== -1) {
+              phraseList.value[phraseIndex].status = parseInt(statusForm.status)
+              phrasesByLetter.value = categorizePhrasesByLetter(phraseList.value)
+            }
+            const statusIndex = statusPhrases.value.findIndex(p => (p.word_id ?? p.wordId) === targetId)
+            if (statusIndex !== -1) {
+              statusPhrases.value[statusIndex].status = parseInt(statusForm.status)
+            }
           }
 
-          // 更新 statusWords 的本地缓存
-          const targetId = currentEditWord.value.id
-          const statusIndex = statusWords.value.findIndex(w => (w.word_id ?? w.wordId) === targetId)
-          if (statusIndex !== -1) {
-            statusWords.value[statusIndex].status = parseInt(statusForm.status)
-          }
-
-          // 保存成功后，重新获取该单词的最新状态并同步到页面
+          // 保存成功后，重新获取该资源的最新状态并同步到页面
           try {
-            const refreshResp = await getWordStatusList(targetId)
+            const refreshResp = await getWordStatusList(targetId, typeNum)
             if (refreshResp.code === 0) {
               const refreshed = (refreshResp.data || []).find(item => (item.word_id ?? item.wordId) === targetId)
               if (refreshed) {
                 const refreshedStatus = Number(refreshed.status ?? refreshed.state ?? 0)
-                // 更新 allWords
-                const idx = allWords.value.findIndex(w => w.id === targetId)
-                if (idx !== -1) {
-                  allWords.value[idx].status = refreshedStatus
-                }
-                // 更新 statusWords
-                const sIdx = statusWords.value.findIndex(w => (w.word_id ?? w.wordId) === targetId)
-                if (sIdx !== -1) {
-                  statusWords.value[sIdx] = { ...statusWords.value[sIdx], status: refreshedStatus }
+                if (currentEditType.value === 'word') {
+                  const idx = allWords.value.findIndex(w => w.id === targetId)
+                  if (idx !== -1) {
+                    allWords.value[idx].status = refreshedStatus
+                  }
+                  const sIdx = statusWords.value.findIndex(w => (w.word_id ?? w.wordId) === targetId)
+                  if (sIdx !== -1) {
+                    statusWords.value[sIdx] = { ...statusWords.value[sIdx], status: refreshedStatus }
+                  } else {
+                    statusWords.value.push({ word_id: targetId, status: refreshedStatus })
+                  }
+                  // 重新关联与分类，确保 UI 更新
+                  associateStatusAndTagsToWords()
                 } else {
-                  statusWords.value.push({ word_id: targetId, status: refreshedStatus })
+                  const pIdx = phraseList.value.findIndex(p => p.id === targetId)
+                  if (pIdx !== -1) {
+                    phraseList.value[pIdx].status = refreshedStatus
+                  }
+                  const spIdx = statusPhrases.value.findIndex(p => (p.word_id ?? p.wordId) === targetId)
+                  if (spIdx !== -1) {
+                    statusPhrases.value[spIdx] = { ...statusPhrases.value[spIdx], status: refreshedStatus }
+                  } else {
+                    statusPhrases.value.push({ word_id: targetId, status: refreshedStatus })
+                  }
+                  associateStatusAndTagsToPhrases()
                 }
-                // 重新关联与分类，确保 UI 更新
-                associateStatusAndTagsToWords()
               }
             }
           } catch (e) {
-            console.warn('刷新单词状态失败，使用本地更新值:', e)
+            console.warn('刷新状态失败，使用本地更新值:', e)
           }
 
           showToast('状态更新成功')
@@ -1047,6 +1529,7 @@ export default {
     // 打开标签编辑弹窗
     const openTagModal = async (word) => {
       currentEditWord.value = word
+      currentEditType.value = resourceType.value
       tagForm.selectedTags = [...(word.tags || [])]
       
       // 如果还没有加载可用标签，先加载
@@ -1101,27 +1584,47 @@ export default {
       try {
         updatingTags.value = true
         
-        // 调用真实API更新标签
+        const targetId = currentEditWord.value.id
+        const typeNum = currentEditType.value === 'phrase' ? 2 : 1
+        
+        // 调用真实API更新标签（根据资源类型传递 word_type）
         const response = await updateWordTag({
-          word_id: currentEditWord.value.id,
-          tag_ids: tagForm.selectedTags.map(tag => tag.id)
+          word_id: targetId,
+          tags: tagForm.selectedTags.map(tag => tag.id),
+          word_type: typeNum
         })
         
         if (response.code === 0) {
           // 更新本地数据
-          const wordIndex = allWords.value.findIndex(w => w.id === currentEditWord.value.id)
-          if (wordIndex !== -1) {
-            allWords.value[wordIndex].tags = [...tagForm.selectedTags]
-            // 重新分类单词
-            wordsByLetter.value = categorizeWordsByLetter(allWords.value)
-          }
-          
-          // 如果当前在标签模式，也更新标签数据
-          if (currentDisplayMode.value === 'tag') {
-            const tagIndex = tagWords.value.findIndex(w => w.id === currentEditWord.value.id)
-            if (tagIndex !== -1) {
-              tagWords.value[tagIndex].tags = [...tagForm.selectedTags]
+          if (currentEditType.value === 'word') {
+            const wordIndex = allWords.value.findIndex(w => w.id === targetId)
+            if (wordIndex !== -1) {
+              allWords.value[wordIndex].tags = [...tagForm.selectedTags]
+              // 重新分类单词
+              wordsByLetter.value = categorizeWordsByLetter(allWords.value)
             }
+            // 如果当前在标签模式，也更新标签数据
+            if (currentDisplayMode.value === 'tag') {
+              const tagIndex = tagWords.value.findIndex(w => (w.word_id ?? w.wordId) === targetId || w.id === targetId)
+              if (tagIndex !== -1) {
+                tagWords.value[tagIndex].tags = [...tagForm.selectedTags]
+              }
+            }
+            associateStatusAndTagsToWords()
+          } else {
+            const phraseIndex = phraseList.value.findIndex(p => p.id === targetId)
+            if (phraseIndex !== -1) {
+              phraseList.value[phraseIndex].tags = [...tagForm.selectedTags]
+              // 重新分类短语
+              phrasesByLetter.value = categorizePhrasesByLetter(phraseList.value)
+            }
+            if (currentDisplayMode.value === 'tag') {
+              const tagIndex = tagPhrases.value.findIndex(p => (p.word_id ?? p.wordId) === targetId)
+              if (tagIndex !== -1) {
+                tagPhrases.value[tagIndex].tags = [...tagForm.selectedTags]
+              }
+            }
+            associateStatusAndTagsToPhrases()
           }
           
           showToast('标签更新成功')
@@ -1149,6 +1652,28 @@ export default {
         categorized[firstLetter].push(word)
       })
       
+      return categorized
+    }
+    
+    // 按首字母分类短语
+    const categorizePhrasesByLetter = (phrases) => {
+      const categorized = {}
+      phrases.forEach(item => {
+        const text = item.phrase || item.word || item.content || ''
+        const firstLetter = (text.trim().charAt(0) || '#').toLowerCase()
+        const letter = /[a-z]/.test(firstLetter) ? firstLetter : '#'
+        if (!categorized[letter]) {
+          categorized[letter] = []
+        }
+        categorized[letter].push(item)
+      })
+      Object.keys(categorized).forEach(k => {
+        categorized[k].sort((a, b) => {
+          const ta = (a.phrase || a.word || a.content || '').toLowerCase()
+          const tb = (b.phrase || b.word || b.content || '').toLowerCase()
+          return ta.localeCompare(tb)
+        })
+      })
       return categorized
     }
     
@@ -1189,37 +1714,226 @@ export default {
         // 1. 首先更新单词列表并立即渲染（不添加状态和标签数据）
         if (append) {
           allWords.value = [...allWords.value, ...data]
+          currentOffset.value += data.length
         } else {
           allWords.value = data
+          currentOffset.value = data.length
         }
         
-        // 更新分页信息
-        currentOffset.value += data.length
-        hasMoreWords.value = currentOffset.value < total
-        
-        // 重新分类单词（立即渲染）
+        // 2. 更新分组渲染
         wordsByLetter.value = categorizeWordsByLetter(allWords.value)
-        
-        console.log(`📝 单词列表已更新并渲染，总数: ${allWords.value.length}`)
         console.log(`🔍 按字母分类结果:`, Object.keys(wordsByLetter.value).map(letter => `${letter}: ${wordsByLetter.value[letter].length}`).join(', '))
         
-        // 2. 然后根据返回的单词ID异步加载状态和标签数据
-        if (data.length > 0) {
-          const wordIds = data.map(word => word.id)
-          console.log(`🔄 开始异步加载状态和标签数据，单词ID数组:`, wordIds)
-          
-          // 异步加载状态和标签数据，不阻塞UI渲染
-          loadStatusAndTagsByWordIds(wordIds, append)
-        }
-        
-      } catch (err) {
-        console.error(`💥 加载单词失败:`, err)
-        // 不在这里设置错误信息，因为request.js的响应拦截器已经处理了
+        // 3. 更新分页信息（是否还有更多）
+        hasMoreWords.value = allWords.value.length < total
+        console.log(`📈 分页状态: currentOffset=${currentOffset.value}, hasMoreWords=${hasMoreWords.value}`)
+      } catch (error) {
+        console.error('❌ 加载单词失败:', error)
+        showToast('加载单词失败，请稍后重试')
       } finally {
         loadingMore.value = false
+        console.log('🧯 设置 loadingMore = false')
       }
     }
     
+    // 加载短语列表
+    const loadPhrases = async (append = false) => {
+      if (append && (loadingMorePhrases.value || !hasMorePhrases.value)) return
+      try {
+        if (append) {
+          loadingMorePhrases.value = true
+        } else {
+          loadingPhraseData.value = true
+          phraseOffset.value = 0
+          hasMorePhrases.value = true
+        }
+        const params = { offset: phraseOffset.value, limit: PAGE_SIZE }
+        const resp = await getWordPhraseList(params)
+        if (resp.code === 0) {
+          const list = resp.data || []
+          if (append) {
+            phraseList.value = phraseList.value.concat(list)
+          } else {
+            phraseList.value = list
+          }
+          phrasesByLetter.value = categorizePhrasesByLetter(phraseList.value)
+          phraseOffset.value += list.length
+          if (list.length < PAGE_SIZE) {
+            hasMorePhrases.value = false
+          }
+        } else {
+          showToast(resp.message || '加载短语列表失败')
+        }
+      } catch (err) {
+        console.error('加载短语失败:', err)
+        showToast('网络错误，请稍后重试')
+      } finally {
+        if (append) {
+          loadingMorePhrases.value = false
+        } else {
+          loadingPhraseData.value = false
+        }
+      }
+    }
+    
+    const loadMorePhrases = async () => {
+      if (!hasMorePhrases.value || loadingMorePhrases.value) return
+      await loadPhrases(true)
+    }
+
+    // 打开短语编辑弹窗（支持新增与编辑）
+    const openPhraseModal = async (item) => {
+      try {
+        // 重置表单
+        phraseForm.id = null
+        phraseForm.phrase = ''
+        phraseForm.translation = ''
+        phraseForm.pronunciation = ''
+        phraseForm.example = []
+        phraseForm.picture = ''
+        phraseForm.isGeneratePicture = false
+        editingPhrase.value = !!(item && item.id)
+        
+        if (editingPhrase.value) {
+          const resp = await getWordPhraseDetail(item.id)
+          if (resp.code === 0 && resp.data) {
+            const d = resp.data
+            phraseForm.id = d.id
+            phraseForm.phrase = d.phrase || item.word || ''
+            phraseForm.translation = d.translation || ''
+            phraseForm.pronunciation = d.pronunciation || ''
+            phraseForm.example = Array.isArray(d.example) ? d.example.map(e => ({ example: e.example || '', translation: e.translation || '' })) : []
+            phraseForm.picture = d.picture || ''
+          } else {
+            showToast(resp.message || '获取短语详情失败')
+            return
+          }
+        }
+        
+        showPhraseModal.value = true
+      } catch (err) {
+        console.error('打开短语弹窗失败:', err)
+        showToast('网络错误，请稍后重试')
+      }
+    }
+
+    const closePhraseModal = () => {
+      showPhraseModal.value = false
+      editingPhrase.value = false
+    }
+
+    const addExample = () => {
+      phraseForm.example.push({ example: '', translation: '' })
+    }
+
+    const removeExample = (index) => {
+      if (index >= 0 && index < phraseForm.example.length) {
+        phraseForm.example.splice(index, 1)
+      }
+    }
+
+    // 选择并上传短语图片
+    const selectPhraseImage = async () => {
+      try {
+        const files = await selectFiles('image/*', false)
+        const file = files[0]
+        if (!file) {
+          showToast('请先选择图片')
+          return
+        }
+        // 验证
+        if (!file.type.startsWith('image/')) {
+          showToast('请选择图片文件')
+          return
+        }
+        if (file.size > 5 * 1024 * 1024) {
+          showToast('图片大小不能超过5MB')
+          return
+        }
+        const ext = file.name.split('.').pop().toLowerCase() || 'png'
+        const safePhrase = (phraseForm.phrase || 'phrase').replace(/[^a-z0-9_-]/gi, '_').toLowerCase()
+        const object = `dictionary/phrase/${safePhrase}_${Date.now()}.${ext}`
+        const uploadResult = await uploadFile(file, 'englishstudy', object)
+        if (uploadResult.code === 0 && uploadResult.path) {
+          phraseForm.picture = uploadResult.path
+          showToast('图片上传成功')
+        } else {
+          showToast(uploadResult.message || '图片上传失败')
+        }
+      } catch (error) {
+        console.error('短语图片上传失败:', error)
+        showToast(error.message || '图片上传失败')
+      }
+    }
+
+    // 提交新增或更新
+    const submitPhrase = async () => {
+      const payload = {
+        phrase: (phraseForm.phrase || '').trim(),
+        translation: (phraseForm.translation || '').trim(),
+        pronunciation: (phraseForm.pronunciation || '').trim(),
+        example: (phraseForm.example || []).map(e => ({ example: e.example || '', translation: e.translation || '' })),
+        picture: phraseForm.picture || ''
+      }
+
+      if (!payload.phrase) {
+        showToast('请输入短语')
+        return
+      }
+
+      try {
+        if (editingPhrase.value) {
+          const resp = await updateWordPhrase({ id: phraseForm.id, ...payload })
+          if (resp.code === 0) {
+            // 更新本地列表项（SimpleWord）
+            const idx = phraseList.value.findIndex(p => p.id === phraseForm.id)
+            if (idx !== -1) {
+              phraseList.value[idx] = { ...phraseList.value[idx], word: payload.phrase }
+              phrasesByLetter.value = categorizePhrasesByLetter(phraseList.value)
+            }
+            showToast('短语更新成功')
+            closePhraseModal()
+          } else {
+            showToast(resp.message || '更新失败，请重试')
+          }
+        } else {
+          const resp = await addWordPhrase({ ...payload, is_generate_picture: !!phraseForm.isGeneratePicture })
+          if (resp.code === 0) {
+            showToast('短语添加成功')
+            // 重新加载短语列表
+            await loadPhrases(false)
+            closePhraseModal()
+          } else {
+            showToast(resp.message || '添加失败，请重试')
+          }
+        }
+      } catch (err) {
+        console.error('提交短语失败:', err)
+        showToast('网络错误，请稍后重试')
+      }
+    }
+
+    const deletePhrase = async () => {
+      if (!editingPhrase.value || !phraseForm.id) return
+      try {
+        const resp = await deleteWordPhrase({ id: phraseForm.id })
+        if (resp.code === 0) {
+          // 从本地列表移除并重新分类
+          const idx = phraseList.value.findIndex(p => p.id === phraseForm.id)
+          if (idx !== -1) {
+            phraseList.value.splice(idx, 1)
+            phrasesByLetter.value = categorizePhrasesByLetter(phraseList.value)
+          }
+          showToast('短语已删除')
+          closePhraseModal()
+        } else {
+          showToast(resp.message || '删除失败，请重试')
+        }
+      } catch (err) {
+        console.error('删除短语失败:', err)
+        showToast('网络错误，请稍后重试')
+      }
+    }
     // 根据单词ID数组异步加载状态和标签数据
     const loadStatusAndTagsByWordIds = async (wordIds, append = false) => {
       console.log(`🔄 loadStatusAndTagsByWordIds 被调用，wordIds: ${wordIds.length}, append: ${append}`)
@@ -1347,6 +2061,79 @@ export default {
       console.log('更新后的单词示例:', allWords.value.slice(0, 3))
     }
     
+    // 获取按状态过滤后的短语（优先显示已设置状态的）
+    const getFilteredPhrasesForStatus = (letter) => {
+      const items = phrasesByLetter.value[letter] || []
+      const withStatus = []
+      const withoutStatus = []
+      items.forEach(item => {
+        const s = Number(item.status || 0)
+        if (s > 0) withStatus.push(item)
+        else withoutStatus.push(item)
+      })
+      return [...withStatus, ...withoutStatus]
+    }
+
+    // 将状态和标签数据关联到对应的短语
+    const associateStatusAndTagsToPhrases = () => {
+      const statusMap = {}
+      statusPhrases.value.forEach(item => {
+        const pid = item.word_id ?? item.wordId
+        const s = Number(item.status ?? item.state ?? 0)
+        if (pid != null) statusMap[pid] = s
+      })
+      const tagMap = {}
+      tagPhrases.value.forEach(item => {
+        const pid = item.word_id ?? item.wordId
+        const tags = item.tags || []
+        if (pid != null) tagMap[pid] = tags
+      })
+      phraseList.value = phraseList.value.map(p => ({
+        ...p,
+        status: statusMap[p.id] !== undefined ? statusMap[p.id] : 0,
+        tags: tagMap[p.id] || []
+      }))
+      phrasesByLetter.value = categorizePhrasesByLetter(phraseList.value)
+    }
+
+    // 加载短语状态数据
+    const loadPhraseStatusData = async () => {
+      try {
+        loadingStatusData.value = true
+        if (phraseList.value.length > 0) {
+          const phraseIds = phraseList.value.map(p => p.id)
+          const resp = await getWordStatusList(phraseIds, 2)
+          if (resp.code === 0) {
+            statusPhrases.value = resp.data || []
+            associateStatusAndTagsToPhrases()
+          }
+        }
+      } catch (e) {
+        console.error('加载短语状态失败:', e)
+      } finally {
+        loadingStatusData.value = false
+      }
+    }
+
+    // 加载短语标签数据
+    const loadPhraseTagData = async () => {
+      try {
+        loadingTagData.value = true
+        if (phraseList.value.length > 0) {
+          const phraseIds = phraseList.value.map(p => p.id)
+          const resp = await getWordTagList(phraseIds, 2)
+          if (resp.code === 0) {
+            tagPhrases.value = resp.data || []
+            associateStatusAndTagsToPhrases()
+          }
+        }
+      } catch (e) {
+        console.error('加载短语标签失败:', e)
+      } finally {
+        loadingTagData.value = false
+      }
+    }
+
     // 加载更多单词（用于懒加载）
     const loadMoreWords = async () => {
       if (!hasMoreWords.value || loadingMore.value) return
@@ -1405,8 +2192,12 @@ export default {
         const scrollProgress = (scrollTop + clientHeight) / scrollHeight
         
         // 当滚动到80%时开始加载更多
-        if (scrollProgress > 0.8 && hasMoreWords.value && !loadingMore.value) {
-          loadMoreWords()
+        if (scrollProgress > 0.8) {
+          if (currentDisplayMode.value === 'word' && hasMoreWords.value && !loadingMore.value) {
+            loadMoreWords()
+          } else if (currentDisplayMode.value === 'phrase' && hasMorePhrases.value && !loadingMorePhrases.value) {
+            loadMorePhrases()
+          }
         }
       }
       
@@ -1492,23 +2283,40 @@ export default {
       })
     }
     
+    // 预加载短语相关资源
+    const preloadPhraseResources = async (phraseData) => {
+      if (!phraseData) return
+      const preloadPromises = []
+      // 预加载发音音频
+      if (phraseData.pronunciation) {
+        preloadPromises.push(preloadAudio(phraseData.pronunciation, `${phraseData.id}_phrase`))
+      }
+      // 预加载图片资源
+      if (phraseData.picture) {
+        preloadPromises.push(preloadImage(phraseData.picture))
+      }
+      Promise.allSettled(preloadPromises).then(() => {
+        console.log('短语资源预加载完成')
+      })
+    }
+    
     // 选择单词
     const selectWord = async (wordId) => {
       try {
-        // 记录当前列表滚动位置，便于返回时恢复
         if (scrollContainer.value) {
           lastScrollTop.value = scrollContainer.value.scrollTop
         }
-        // 设置进入详情页动画（页面向左滑入）
         transitionName.value = 'page-slide'
         const response = await getWordDetail(wordId)
-        
         if (response.code === 0) {
           selectedWord.value = response.data
-          // 重置展开状态
           showPictures.value = {}
           // 立即预加载音频和图片资源
           preloadWordResources(response.data)
+          if (showSearchModal.value) {
+            searchActive.value = true
+            showSearchModal.value = false
+          }
         } else {
           showToast(response.message || '获取单词详情失败')
         }
@@ -1517,16 +2325,104 @@ export default {
         showToast('网络错误，请稍后重试')
       }
     }
-    
+
+    // 选择短语
+    const selectPhrase = async (phraseId) => {
+      try {
+        if (scrollContainer.value) {
+          lastScrollTop.value = scrollContainer.value.scrollTop
+        }
+        transitionName.value = 'page-slide'
+        const resp = await getWordPhraseDetail(phraseId)
+        if (resp.code === 0 && resp.data) {
+          const d = resp.data
+          selectedPhrase.value = {
+            id: d.id,
+            word: d.phrase || '',
+            translation: d.translation || '',
+            pronunciation: d.pronunciation || '',
+            example: Array.isArray(d.example) ? d.example.map(e => ({ example: e.example || '', translation: e.translation || '' })) : [],
+            picture: d.picture || ''
+          }
+          // 预加载短语的音频和图片资源
+          preloadPhraseResources(selectedPhrase.value)
+          if (showSearchModal.value) {
+            searchActive.value = true
+            showSearchModal.value = false
+          }
+        } else {
+          showToast(resp.message || '获取短语详情失败')
+        }
+      } catch (err) {
+        console.error('获取短语详情失败:', err)
+        showToast('网络错误，请稍后重试')
+      }
+    }
+
     // 返回列表
     const goBack = () => {
       selectedWord.value = null
+      selectedPhrase.value = null
       // 在列表重新渲染后恢复滚动位置
       nextTick(() => {
         if (scrollContainer.value) {
           scrollContainer.value.scrollTop = lastScrollTop.value || 0
         }
       })
+    }
+    const openSearchModal = () => {
+      showSearchModal.value = true
+      searchType.value = resourceType.value
+    }
+    const closeSearchModal = () => {
+      showSearchModal.value = false
+      searchActive.value = false
+      if (searchDebounceTimer) {
+        clearTimeout(searchDebounceTimer)
+        searchDebounceTimer = null
+      }
+      searchQuery.value = ''
+      searchResults.value = []
+      searching.value = false
+    }
+    const onSearchInput = () => {
+      if (searchDebounceTimer) {
+        clearTimeout(searchDebounceTimer)
+      }
+      if (!searchQuery.value) {
+        searchResults.value = []
+        return
+      }
+      searchDebounceTimer = setTimeout(async () => {
+        try {
+          searching.value = true
+          let resp
+          if (searchType.value === 'word') {
+            const params = { word_prefix: searchQuery.value, limit: 50 }
+            resp = await getWordList(params)
+          } else {
+            const params = { phrase_prefix: searchQuery.value, limit: 50 }
+            resp = await getWordPhraseList(params)
+          }
+          if (resp && (resp.code === 0 || Array.isArray(resp))) {
+            const list = resp.data || resp || []
+            searchResults.value = list
+          } else {
+            searchResults.value = []
+          }
+        } catch (e) {
+          searchResults.value = []
+        } finally {
+          searching.value = false
+        }
+      }, 500)
+    }
+    const selectSearchResult = (item) => {
+      if (searchType.value === 'word') {
+        selectWord(item.id)
+      } else {
+        selectPhrase(item.id)
+      }
     }
 
     // 过渡进入后钩子：在列表节点真正挂载并进入后恢复滚动位置
@@ -1577,34 +2473,39 @@ export default {
     }
     
     const handleRightSwipe = () => {
-       // 如果当前在单词详情页面，右滑返回单词列表
-       if (selectedWord.value) {
-         // 设置右滑动画（页面向右滑出）
-         transitionName.value = 'page-slide-right'
-         goBack()
-         // 优先恢复精确滚动位置
-         nextTick(() => {
-           if (scrollContainer.value) {
-             scrollContainer.value.scrollTop = lastScrollTop.value || 0
-           }
-         })
-       } else {
-         // 如果在单词列表页面，右滑切换到练习页面
-         // 设置向右滑动的动画效果
-         transitionName.value = 'page-slide-right'
-         router.push('/practice')
-       }
-     }
-    
+      // 如果当前在详情页面（单词或短语），右滑返回列表
+      if (selectedWord.value || selectedPhrase.value) {
+        transitionName.value = 'page-slide-right'
+        goBack()
+        if (searchActive.value) {
+          showSearchModal.value = true
+        }
+        nextTick(() => {
+          if (scrollContainer.value) {
+            scrollContainer.value.scrollTop = lastScrollTop.value || 0
+          }
+        })
+        return
+      }
+
+      // 在列表页面，右滑切换到上一个显示模式（单词 ← 状态 ← 标签）
+      const modes = displayModes.value.map(m => m.value)
+      const currentIndex = modes.indexOf(currentDisplayMode.value)
+      const prevIndex = (currentIndex - 1 + modes.length) % modes.length
+      const prevMode = modes[prevIndex]
+      switchDisplayMode(prevMode)
+    }
+
     const handleLeftSwipe = () => {
-       // 只在单词列表页面处理左滑手势
-       if (!selectedWord.value) {
-         // 左滑切换到我的页面
-         // 设置向左滑动的动画效果
-         transitionName.value = 'page-slide-left'
-         router.push('/profile')
-       }
-     }
+      // 只在列表页面处理左滑手势：切换到下一个显示模式（单词 → 状态 → 标签）
+      if (!selectedWord.value && !selectedPhrase.value) {
+        const modes = displayModes.value.map(m => m.value)
+        const currentIndex = modes.indexOf(currentDisplayMode.value)
+        const nextIndex = (currentIndex + 1) % modes.length
+        const nextMode = modes[nextIndex]
+        switchDisplayMode(nextMode)
+      }
+    }
     
     // 滚动到列表中指定单词的位置
     const scrollToWordInList = (wordText) => {
@@ -1629,6 +2530,16 @@ export default {
        generatedPicture.value = ''
        showPictureModal.value = true
      }
+
+    // 打开短语图片弹窗
+    const openPhrasePictureModal = () => {
+      currentPosIndex.value = -1
+      currentPicture.value = selectedPhrase.value?.picture || ''
+      originalPicture.value = selectedPhrase.value?.picture || ''
+      generatedPicture.value = ''
+      showActionModal.value = false
+      showPictureModal.value = true
+    }
     
     // 关闭图片弹窗
     const closePictureModal = () => {
@@ -1648,21 +2559,28 @@ export default {
      const generatePicture = async () => {
        try {
          generatingPicture.value = true
-         const pos = selectedWord.value.pos[currentPosIndex.value]
-         
-         const response = await generateWordPicture(pos.id)
-         console.log('生成图片响应:', response)
-         
-         if (response.link) {
-           generatedPicture.value = response.link
-           // 直接覆盖当前显示的图片
-           currentPicture.value = response.link
-           showActionModal.value = true
-           showToast('图片生成成功')
+         if (selectedWord.value && currentPosIndex.value >= 0) {
+           const pos = selectedWord.value.pos[currentPosIndex.value]
+           const response = await generateWordPicture(pos.id)
+           console.log('生成图片响应:', response)
+           if (response.link) {
+             generatedPicture.value = response.link
+             currentPicture.value = response.link
+             showActionModal.value = true
+             showToast('图片生成成功')
+           }
+         } else if (selectedPhrase.value) {
+           const response = await generatePhrasePicture(selectedPhrase.value.id)
+           console.log('生成短语图片响应:', response)
+           if (response.link) {
+             generatedPicture.value = response.link
+             currentPicture.value = response.link
+             showActionModal.value = true
+             showToast('图片生成成功')
+           }
          }
        } catch (error) {
          console.error('生成图片失败:', error)
-         // 不在这里显示错误信息，因为request.js的响应拦截器已经处理了
        } finally {
          generatingPicture.value = false
        }
@@ -1672,25 +2590,33 @@ export default {
      const applyPicture = async () => {
        try {
          applyingPicture.value = true
-         const pos = selectedWord.value.pos[currentPosIndex.value]
-         
-         const response = await updateWordPicture({
-           word_pos_id: pos.id,
-           picture: generatedPicture.value
-         })
-         
-         console.log('应用图片响应:', response)
-         
-         // 更新本地数据，保存当前生成的图片
-         selectedWord.value.pos[currentPosIndex.value].picture = generatedPicture.value
-         currentPicture.value = generatedPicture.value
-         // 更新原图片为新应用的图片
-         originalPicture.value = generatedPicture.value
-         showToast('图片应用成功')
-         showActionModal.value = false
+         if (selectedWord.value && currentPosIndex.value >= 0) {
+           const pos = selectedWord.value.pos[currentPosIndex.value]
+           const response = await updateWordPicture({
+             word_pos_id: pos.id,
+             picture: generatedPicture.value
+           })
+           console.log('应用图片响应:', response)
+           selectedWord.value.pos[currentPosIndex.value].picture = generatedPicture.value
+           currentPicture.value = generatedPicture.value
+           originalPicture.value = generatedPicture.value
+           showToast('图片应用成功')
+           showActionModal.value = false
+         } else if (selectedPhrase.value) {
+           const response = await updatePhrasePicture({
+             id: selectedPhrase.value.id,
+             link: generatedPicture.value
+           })
+           console.log('应用短语图片响应:', response)
+           // 成功时更新本地数据
+           selectedPhrase.value.picture = generatedPicture.value
+           currentPicture.value = generatedPicture.value
+           originalPicture.value = generatedPicture.value
+           showToast('图片应用成功')
+           showActionModal.value = false
+         }
        } catch (error) {
          console.error('应用图片失败:', error)
-         // 不在这里显示错误信息，因为request.js的响应拦截器已经处理了
        } finally {
          applyingPicture.value = false
        }
@@ -1758,6 +2684,48 @@ export default {
       }
     }
     
+    // 打开添加短语弹窗
+    const openAddPhraseModal = () => {
+      // 重置表单
+      addPhraseForm.phrase = ''
+      addPhraseForm.isGeneratePicture = false
+      showAddPhraseModal.value = true
+    }
+    
+    // 关闭添加短语弹窗
+    const closeAddPhraseModal = () => {
+      showAddPhraseModal.value = false
+      addPhraseForm.phrase = ''
+      addPhraseForm.isGeneratePicture = false
+    }
+    
+    // 提交添加短语
+    const submitAddPhrase = async () => {
+      if (!addPhraseForm.phrase.trim()) {
+        showToast('请输入短语')
+        return
+      }
+      
+      try {
+        addingPhrase.value = true
+        const resp = await addWordPhrase({
+          phrase: addPhraseForm.phrase.trim(),
+          is_generate_picture: addPhraseForm.isGeneratePicture
+        })
+        if (resp.code === 0) {
+          showToast('短语添加成功')
+          closeAddPhraseModal()
+          await loadPhrases(false)
+        } else {
+          showToast(resp.message || '添加失败，请重试')
+        }
+      } catch (error) {
+        console.error('添加短语失败:', error)
+      } finally {
+        addingPhrase.value = false
+      }
+    }
+    
     // 处理单词输入
     const handleWordInput = (event) => {
       console.log('🔍 handleWordInput 被调用，事件对象:', event)
@@ -1789,8 +2757,9 @@ export default {
         // 设置播放状态
         audioPlaying.value[index] = true
         
-        // 构建缓存键
-        const cacheKey = `${selectedWord.value?.id}_${index}`
+        // 构建缓存键（兼容单词与短语）
+        const currentId = selectedWord.value?.id || selectedPhrase.value?.id
+        const cacheKey = `${currentId}_${index}`
         
         // 优先使用预加载的音频对象
         let audio = audioCache.value[cacheKey]
@@ -1946,9 +2915,15 @@ export default {
           type: `image/${originalExtension}`
         })
         
-        // 生成上传路径，使用原始文件的扩展名
-        const pos = selectedWord.value.pos[currentPosIndex.value]
-        const uploadPath = generateUploadPath(selectedWord.value.word, pos.pos, originalExtension)
+        // 生成上传路径，使用原始文件的扩展名（根据上下文区分单词/短语）
+        let uploadPath = ''
+        if (selectedWord.value && currentPosIndex.value >= 0) {
+          const pos = selectedWord.value.pos[currentPosIndex.value]
+          uploadPath = generateUploadPath(selectedWord.value.word, pos.pos, originalExtension)
+        } else if (selectedPhrase.value) {
+          const safePhrase = (selectedPhrase.value.word || 'phrase').replace(/[^a-z0-9_-]/gi, '_').toLowerCase()
+          uploadPath = `dictionary/phrase/${safePhrase}_${Date.now()}.${originalExtension}`
+        }
         
         // 上传文件
         const uploadResult = await uploadFile(croppedFile, 'englishstudy', uploadPath)
@@ -2003,15 +2978,18 @@ export default {
       initialLoading,
       error,
       selectedWord,
+      selectedPhrase,
       scrollContainer,
       transitionName,
       
       // 显示模式相关
+      resourceType,
       currentDisplayMode,
       displayModes,
       
       // 状态编辑相关
       showStatusModal,
+      currentEditType,
       currentEditWord,
       updatingStatus,
       statusForm,
@@ -2029,12 +3007,19 @@ export default {
       loadingMore,
       currentOffset,
       
-      // 状态和标签数据
+      // 状态、标签、短语数据
       statusWords,
       tagWords,
       availableTags,
       loadingStatusData,
       loadingTagData,
+      // 短语数据
+      phraseList,
+      phrasesByLetter,
+      loadingPhraseData,
+      hasMorePhrases,
+      loadingMorePhrases,
+      lettersToLoop,
       
       // 图片相关
       showPictures,
@@ -2067,6 +3052,21 @@ export default {
       showAddWordModal,
       addingWord,
       addWordForm,
+
+      // 添加短语相关
+      showAddPhraseModal,
+      addingPhrase,
+      addPhraseForm,
+
+      showSearchModal,
+      searchQuery,
+      searchResults,
+      searching,
+
+      // 短语弹窗相关
+      showPhraseModal,
+      editingPhrase,
+      phraseForm,
       
       // 方法
       getPosName,
@@ -2074,9 +3074,17 @@ export default {
       getStatusText,
       getStatusClass,
       getFilteredWordsForStatus,
+      getFilteredPhrasesForStatus,
       switchDisplayMode,
+      switchResourceType,
       selectWord,
+      selectPhrase,
       goBack,
+
+      openSearchModal,
+      closeSearchModal,
+      onSearchInput,
+      selectSearchResult,
       
       // 状态编辑方法
       openStatusModal,
@@ -2091,6 +3099,7 @@ export default {
       removeTag,
       submitTagUpdate,
       openPictureModal,
+      openPhrasePictureModal,
       closePictureModal,
       generatePicture,
       applyPicture,
@@ -2103,6 +3112,20 @@ export default {
       submitAddWord,
       handleWordInput,
       handleWordKeydown,
+
+      // 添加短语相关方法
+      openAddPhraseModal,
+      closeAddPhraseModal,
+      submitAddPhrase,
+
+      // 短语编辑相关方法
+      openPhraseModal,
+      closePhraseModal,
+      addExample,
+      removeExample,
+      selectPhraseImage,
+      submitPhrase,
+      deletePhrase,
       
       // 图片上传方法
       openImageUpload,
@@ -2238,6 +3261,32 @@ export default {
     font-weight: bold;
   }
 }
+
+.search-fab {
+  position: fixed;
+  bottom: 140px;
+  right: 20px;
+  width: 56px;
+  height: 56px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  z-index: 1000;
+  color: #fff;
+}
+.search-fab:hover { transform: scale(1.1); box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6); }
+.search-fab:active { transform: scale(0.95); }
+
+.search-modal { background: #fff; border-radius: 16px; }
+.search-modal .modal-header { display:flex; justify-content:space-between; align-items:center; padding:16px; border-bottom:1px solid #eee; }
+.search-modal .close-btn { font-size:20px; color:#999; }
+.search-modal .modal-content { padding:16px; }
+.search-results { margin-top:12px; }
 
 /* 添加单词弹窗样式 */
 .add-word-modal {
@@ -3985,4 +5034,152 @@ export default {
   }
 }
 
+/* 右侧书签切换：固定在屏幕右侧中间位置 */
+.resource-switcher {
+  position: fixed;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  z-index: 1000; /* 保证在内容之上可点击 */
+}
+
+.bookmark-option {
+  min-width: 72px;
+  padding: 10px 14px;
+  border-top-left-radius: 12px;
+  border-bottom-left-radius: 12px;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  background: rgba(0, 0, 0, 0.28);
+  color: #fff;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-align: center;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+  transition: all 0.25s ease;
+  opacity: 0.85;
+  user-select: none;
+
+  &:hover {
+    opacity: 0.95;
+    transform: translateX(-2px);
+  }
+
+  &.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    box-shadow: 0 10px 26px rgba(102, 126, 234, 0.35);
+    opacity: 1;
+  }
+}
+
+/* 小屏适配：稍微缩小书签尺寸，避免遮挡内容 */
+@media (max-width: 375px) {
+  .bookmark-option {
+    min-width: 64px;
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+}
+
+.phrase-detail-section {
+  margin-top: 16px;
+  padding: 16px 18px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #f8fbff 0%, #eef5ff 100%);
+  box-shadow: 0 4px 12px rgba(91, 106, 255, 0.08);
+  border: 1px solid rgba(91, 106, 255, 0.15);
+}
+
+.phrase-detail-section .phrase-field {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  font-size: 16px;
+}
+
+.phrase-detail-section .field-label {
+  font-weight: 600;
+  color: #4b5e7f;
+  font-size: 16px;
+}
+
+.phrase-detail-section .field-value {
+  font-weight: 600;
+  color: #2e3a59;
+  font-size: 18px;
+}
+
+.phrase-detail-section .examples-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #334b99;
+  margin-top: 12px;
+}
+
+.phrase-detail-section .example-text,
+.phrase-detail-section .example-translation {
+  font-size: 16px;
+  line-height: 1.7;
+}
+
+.picture-action {
+  margin: 10px 0 2px;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.picture-toggle-btn {
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 14px;
+}
+
+/* 短语发音与释义样式 */
+.phrase-pronunciation-section,
+.phrase-translation-section {
+  margin-top: 10px;
+  background: #fff;
+  border-radius: 12px;
+  padding: 8px 12px;
+  border: 1px solid rgba(102, 126, 234, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.phrase-section-title {
+  color: #2c3e50;
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0 0 8px 0;
+  padding: 8px 12px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 12px;
+  text-align: center;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  letter-spacing: 0.5px;
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.2);
+}
+
+.pronunciation-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.definition-text {
+  font-size: 16px;
+  color: #2c3e50;
+  font-weight: 600;
+  line-height: 1.5;
+  margin: 0;
+}
 </style>

@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { getToken } from '@/utils/auth'
 import { showToast } from 'vant'
+import Dictionary from '@/views/Dictionary.vue'
 
 // 路由配置
 const routes = [
@@ -47,9 +48,51 @@ const routes = [
     }
   },
   {
+    path: '/practice/review',
+    name: 'PracticeReview',
+    component: () => import('@/views/PracticeReview.vue'),
+    meta: {
+      title: '复习模式',
+      requiresAuth: true,
+      showTabbar: true
+    }
+  },
+  {
+    path: '/practice/strength',
+    name: 'PracticeStrength',
+    component: () => import('@/views/PracticeStrength.vue'),
+    meta: {
+      title: '强化模式',
+      requiresAuth: true,
+      showTabbar: true
+    }
+  },
+  {
+    path: '/practice/spot',
+    name: 'PracticeSpot',
+    component: () => import('@/views/PracticeSpot.vue'),
+    meta: {
+      title: '抽查模式',
+      requiresAuth: true,
+      showTabbar: true
+    }
+  },
+  {
     path: '/dictionary',
     name: 'Dictionary',
-    component: () => import('@/views/Dictionary.vue'),
+    component: Dictionary,
+    beforeEnter: (to, from, next) => {
+      const token = getToken()
+      if (!token) {
+        showToast({
+          message: '请先登录',
+          type: 'fail'
+        })
+        next('/login')
+      } else {
+        next()
+      }
+    },
     meta: {
       title: '词典',
       requiresAuth: true,

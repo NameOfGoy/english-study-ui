@@ -1,9 +1,8 @@
 <template>
-  <transition name="slide" appear>
-    <div class="profile-page" 
-         @touchstart="handleTouchStart" 
-         @touchmove="handleTouchMove" 
-         @touchend="handleTouchEnd">
+  <div class="profile-page" 
+       @touchstart="handleTouchStart" 
+       @touchmove="handleTouchMove" 
+       @touchend="handleTouchEnd">
     <!-- 头部信息 -->
     <div class="profile-header">
       <div class="user-avatar">
@@ -116,8 +115,7 @@
         </div>
       </div>
     </van-popup>
-    </div>
-  </transition>
+  </div>
 </template>
 
 <script>

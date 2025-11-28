@@ -1,9 +1,8 @@
 <template>
-  <transition name="slide" appear>
-    <div class="practice-page" 
-         @touchstart="handleTouchStart" 
-         @touchmove="handleTouchMove" 
-         @touchend="handleTouchEnd">
+  <div class="practice-page" 
+       @touchstart="handleTouchStart" 
+       @touchmove="handleTouchMove" 
+       @touchend="handleTouchEnd">
       <!-- 头部 -->
       <div class="practice-header">
         <h1 class="page-title">英语练习</h1>
@@ -26,7 +25,7 @@
             <div class="mode-icon">🔁</div>
             <div class="mode-title">复习</div>
             <div class="mode-desc">巩固已学单词，提升记忆稳定性</div>
-            <button class="mode-btn disabled">敬请期待</button>
+            <button class="mode-btn primary">进入</button>
           </div>
 
           <!-- 强化 -->
@@ -34,7 +33,7 @@
             <div class="mode-icon">💪</div>
             <div class="mode-title">强化</div>
             <div class="mode-desc">针对薄弱单词进行专注强化</div>
-            <button class="mode-btn disabled">敬请期待</button>
+            <button class="mode-btn primary">进入</button>
           </div>
 
           <!-- 抽查 -->
@@ -42,12 +41,11 @@
             <div class="mode-icon">🎯</div>
             <div class="mode-title">抽查</div>
             <div class="mode-desc">随机抽查单词，检测学习效果</div>
-            <button class="mode-btn disabled">敬请期待</button>
+            <button class="mode-btn primary">进入</button>
           </div>
         </div>
       </div>
-    </div>
-  </transition>
+  </div>
 </template>
 
 <script>
@@ -105,10 +103,16 @@ export default {
       isSwipeGesture.value = false
     }
 
-    // 进入不同练习模式（先实现学习模式）
+    // 进入不同练习模式
     const enterMode = (mode) => {
       if (mode === 'study') {
         router.push('/practice/study')
+      } else if (mode === 'review') {
+        router.push('/practice/review')
+      } else if (mode === 'strength') {
+        router.push('/practice/strength')
+      } else if (mode === 'spot') {
+        router.push('/practice/spot')
       } else {
         showToast({ message: '功能开发中，敬请期待', type: 'primary' })
       }

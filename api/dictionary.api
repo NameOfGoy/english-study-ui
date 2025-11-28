@@ -3,40 +3,40 @@ syntax = "v1"
 @server (
 	group:  dictionary
 	jwt:    Auth
-	prefix: api/v1/dictionary
+	prefix: api/v1/dictionary/word
 )
 service englishstudy-api {
 	@doc "字典模块/单词列表"
 	@handler GetWordList
-	get /word/list (GetWordListReq) returns (GetWordListResp)
+	get /list (GetWordListReq) returns (GetWordListResp)
 
 	@doc "字典模块/单词详情"
 	@handler GetWordDetail
-	get /word/detail (GetWordDetailReq) returns (GetWordDetailResp)
+	get /detail (GetWordDetailReq) returns (GetWordDetailResp)
 
 	@doc "字典模块/单词添加"
 	@handler AddWord
-	post /word/add (AddWordReq) returns (AddWordResp)
+	post /add (AddWordReq) returns (AddWordResp)
 
 	@doc "字典模块/单词删除"
 	@handler DeleteWord
-	post /word/delete (DeleteWordReq) returns (DeleteWordResp)
+	post /delete (DeleteWordReq) returns (DeleteWordResp)
 
 	@doc "字典模块/单词更新"
 	@handler UpdateWord
-	post /word/update (UpdateWordReq) returns (UpdateWordResp)
+	post /update (UpdateWordReq) returns (UpdateWordResp)
 
 	@doc "字典模块/词性图片生成"
 	@handler GenerateWordPicture
-	post /word/picture (GenerateWordPictureReq) returns (GenerateWordPictureResp)
+	post /picture (GenerateWordPictureReq) returns (GenerateWordPictureResp)
 
 	@doc "字典模块/词性图片更新"
 	@handler UpdateWordPicture
-	post /word/picture/update (UpdateWordPictureReq) returns (UpdateWordPictureResp)
+	post /picture/update (UpdateWordPictureReq) returns (UpdateWordPictureResp)
 
 	@doc "字典模块/词性图片删除"
 	@handler DeleteWordPicture
-	post /word/picture/delete (DeleteWordPictureReq) returns (DeleteWordPictureResp)
+	post /picture/delete (DeleteWordPictureReq) returns (DeleteWordPictureResp)
 
 	@doc "字典模块/例句更新"
 	@handler UpdateExample
@@ -45,14 +45,6 @@ service englishstudy-api {
 	@doc "字典模块/例句生成"
 	@handler GenerateExample
 	post /example/generate (GenerateExampleReq) returns (GenerateExampleResp)
-
-	@doc "字典模块/批量导入单词"
-	@handler ImportWord
-	post /word/import (ImportWordReq) returns (ImportWordResp)
-
-	@doc "字典模块/批量导出单词"
-	@handler ExportWord
-	post /word/export (ExportWordReq) returns (ExportWordResp)
 }
 
 type Word {
@@ -97,7 +89,7 @@ type GetWordListReq {
 	Phonetic    string `form:"phonetic, optional"` // 音标
 }
 
-type SingleWord {
+type SimpleWord {
 	ID   uint   `json:"id"`
 	Word string `json:"word"` // 单词
 }
@@ -105,7 +97,7 @@ type SingleWord {
 type GetWordListResp {
 	CommonReply
 	PageReply
-	Data []*SingleWord `json:"data"`
+	Data []*SimpleWord `json:"data"`
 }
 
 type GetWordDetailReq {
@@ -118,14 +110,13 @@ type GetWordDetailResp {
 }
 
 type AddWordReq {
-	Word       string     `json:"word"` // 单词
-	UKPhonetic string     `json:"uk_phonetic, optional"` // 英式音标
-	UKAudio    string     `json:"uk_audio, optional"` // 英式音频
-	USPhonetic string     `json:"us_phonetic, optional"` // 美式音标
-	USAudio    string     `json:"us_audio, optional"` // 美式音频
-	Pos        []*WordPos `json:"pos, optional"` // 词性
-
-	IsGeneratePicture bool `json:"is_generate_picture, optional"` // 是否生成图片
+	Word              string     `json:"word"` // 单词
+	UKPhonetic        string     `json:"uk_phonetic, optional"` // 英式音标
+	UKAudio           string     `json:"uk_audio, optional"` // 英式音频
+	USPhonetic        string     `json:"us_phonetic, optional"` // 美式音标
+	USAudio           string     `json:"us_audio, optional"` // 美式音频
+	Pos               []*WordPos `json:"pos, optional"` // 词性
+	IsGeneratePicture bool       `json:"is_generate_picture, optional"` // 是否生成图片
 }
 
 type AddWordResp {
@@ -164,8 +155,8 @@ type GenerateWordPictureResp {
 }
 
 type UpdateWordPictureReq {
-	WordPosId uint `json:"word_pos_id"` // 单词词性ID
-	Picture string `json:"picture"` // 图片链接
+	WordPosId uint   `json:"word_pos_id"` // 单词词性ID
+	Picture   string `json:"picture"` // 图片链接
 }
 
 type UpdateWordPictureResp {
@@ -181,8 +172,8 @@ type DeleteWordPictureResp {
 }
 
 type UpdateExampleReq {
-	WordPosId uint `json:"word_pos_id"` // 单词词性ID
-	Examples []*Example `json:"examples"` // 例句
+	WordPosId uint       `json:"word_pos_id"` // 单词词性ID
+	Examples  []*Example `json:"examples"` // 例句
 }
 
 type UpdateExampleResp {
@@ -190,13 +181,209 @@ type UpdateExampleResp {
 }
 
 type GenerateExampleReq {
-	WordPosId uint `json:"word_pos_id"` // 单词词性ID
-    Translation string `json:"translation"` // 指定某中文翻译
+	WordPosId   uint   `json:"word_pos_id"` // 单词词性ID
+	Translation string `json:"translation"` // 指定某中文翻译
 }
 
 type GenerateExampleResp {
 	CommonReply
 	Example Example `json:"example"` // 例句
+}
+
+@server (
+	group:  dictionary
+	jwt:    Auth
+	prefix: api/v1/dictionary/phrase
+)
+service englishstudy-api {
+	@doc "字典模块/添加短语"
+	@handler AddWordPhrase
+	post /add (AddWordPhraseReq) returns (AddWordPhraseResp)
+	@doc "字典模块/获取短语详情"
+	@handler GetWordPhraseDetail
+	get /detail (GetWordPhraseDetailReq) returns (GetWordPhraseDetailResp)
+	@doc "字典模块/获取短语列表"
+	@handler GetWordPhraseList
+	get /list (GetWordPhraseListReq) returns (GetWordPhraseListResp)
+	@doc "字典模块/删除短语"
+	@handler DeleteWordPhrase
+	delete /delete (DeleteWordPhraseReq) returns (DeleteWordPhraseResp)
+	@doc "字典模块/更新短语"
+	@handler UpdateWordPhrase
+	post /update (UpdateWordPhraseReq) returns (UpdateWordPhraseResp)
+}
+
+type WordPhrase {
+	ID            uint   `json:"id"` // 短语ID
+	Phrase        string `json:"phrase"` // 短语
+	Translation   string `json:"translation"` // 中文翻译
+	Pronunciation string `json:"pronunciation"` // 发音
+	Example       []*Example `json:"example"` // 例句
+	Picture       string `json:"picture"` // 图片
+}
+
+type AddWordPhraseReq {
+	Phrase        string     `json:"phrase"` // 短语
+	Translation   string     `json:"translation, optional"` // 中文翻译
+	Pronunciation string     `json:"pronunciation, optional"` // 发音
+	Example       []*Example `json:"example, optional"` // 例句
+	Picture       string     `json:"picture, optional"` // 图片
+
+	IsGeneratePicture bool       `json:"is_generate_picture, optional"` // 是否生成图片
+}
+
+type AddWordPhraseResp {
+	CommonReply
+}
+
+type GetWordPhraseDetailReq {
+	ID uint `form:"id"` // 短语ID
+}
+
+type GetWordPhraseDetailResp {
+	CommonReply
+	Data WordPhrase `json:"data"`
+}
+
+type GetWordPhraseListReq {
+	PageReq
+	WordID []uint `form:"word_id, optional"` // 单词ID列表
+	PhrasePrefix string `form:"phrase_prefix, optional"` // 短语前缀
+	Translation string `form:"translation, optional"` // 中文翻译
+}
+
+type GetWordPhraseListResp {
+	CommonReply
+	PageReply
+	Data []*SimpleWord `json:"data"`
+}
+
+type DeleteWordPhraseReq {
+	ID uint `json:"id"` // 短语ID
+}
+
+type DeleteWordPhraseResp {
+	CommonReply
+}
+
+type UpdateWordPhraseReq {
+	ID         uint      `json:"id"` // 短语ID
+	Phrase     string    `json:"phrase"` // 短语
+	Translation string    `json:"translation"` // 中文翻译
+	Pronunciation string `json:"pronunciation"` // 发音
+	Example    []*Example `json:"example"` // 例句
+	Picture    string    `json:"picture"` // 图片
+}
+
+type UpdateWordPhraseResp {
+	CommonReply
+}
+
+@server (
+	group:  dictionary
+	jwt:    Auth
+	prefix: api/v1/dictionary/status
+)
+service englishstudy-api {
+	@doc "字典模块/获取单词状态列表"
+	@handler GetWordStatusList
+	get /list (GetWordStatusListReq) returns (GetWordStatusListResp)
+
+	@doc "字典模块/修改单词状态"
+	@handler UpdateWordStatus
+	post /update (UpdateWordStatusReq) returns (UpdateWordStatusResp)
+}
+
+type WordStatus {
+	ID     uint    `json:"id"` // 单词状态ID
+	WordID uint    `json:"word_id"` // 单词ID
+	WordType int     `json:"word_type"` // 单词类型, 1-单词 2-短语
+	Status int     `json:"status"` // 状态
+	Times  int    `json:"times"` // 学习次数
+	Weight float64 `json:"weight"` // 权重
+}
+
+type GetWordStatusListReq {
+	PageReq
+	WordID []uint `form:"word_id, optional"` // 单词ID列表
+	WordType int `form:"word_type, optional"` // 单词类型, 1-单词 2-短语
+}
+
+type GetWordStatusListResp {
+	CommonReply
+	PageReply
+	Data []*WordStatus `json:"data"`
+}
+
+type UpdateWordStatusReq {
+	WordID uint `json:"word_id"` // 单词ID
+	WordType int  `json:"word_type"` // 单词类型, 1-单词 2-短语
+	Status int  `json:"status"` // 状态
+}
+
+type UpdateWordStatusResp {
+	CommonReply
+}
+
+@server (
+	group:  dictionary
+	jwt:    Auth
+	prefix: api/v1/dictionary/tag
+)
+service englishstudy-api {
+	@doc "字典模块/获取单词标签列表"
+	@handler GetWordTagList
+	get /list (GetWordTagListReq) returns (GetWordTagListResp)
+
+	@doc "字典模块/修改单词标签"
+	@handler UpdateWordTag
+	post /update (UpdateWordTagReq) returns (UpdateWordTagResp)
+}
+
+type WordTag {
+	ID     uint   `json:"id"` // 单词标签ID
+	WordID uint   `json:"word_id"` // 单词ID
+	WordType int   `json:"word_type"` // 单词类型, 1-单词 2-短语
+	TagID  uint   `json:"tag_id"` // 标签ID
+	Name   string `json:"name"` // 标签名称
+	Style  string `json:"style"` // 展示风格
+}
+
+type GetWordTagListReq {
+	PageReq
+	WordID []uint `form:"word_id, optional"` // 单词ID列表
+	WordType int `form:"word_type, optional"` // 单词类型, 1-单词 2-短语
+}
+
+type GetWordTagListResp {
+	CommonReply
+	PageReply
+	Data []*WordTag `json:"data"`
+}
+
+type UpdateWordTagReq {
+	WordID uint   `json:"word_id"` // 单词ID
+	WordType int   `json:"word_type"` // 单词类型, 1-单词 2-短语
+	Tags   []uint `json:"tags"` // 标签ID列表
+}
+
+type UpdateWordTagResp {
+	CommonReply
+}
+
+@server (
+	group:  dictionary
+	jwt:    Auth
+	prefix: api/v1/dictionary/operation
+)
+service englishstudy-api {
+	@doc "字典模块/批量导入"
+	@handler ImportWord
+	post /import (ImportWordReq) returns (ImportWordResp)
+
+	@doc "字典模块/批量导出"
+	@handler ExportWord
+	post /export (ExportWordReq) returns (ExportWordResp)
 }
 
 type ImportWordReq {
@@ -207,10 +394,11 @@ type ImportWordResp {
 	CommonReply
 }
 
-type ExportWordReq {}
+type ExportWordReq {
+
+}
 
 type ExportWordResp {
 	CommonReply
 	FilePath string `json:"file_path"` // 文件路径
 }
-

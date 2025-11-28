@@ -71,12 +71,28 @@
     </div>
 
     <!-- 单词卡片展示 -->
-    <div v-if="currentCard && !finishedAll" class="card-container">
+    <div
+      v-if="currentCard && !finishedAll"
+      class="card-container"
+      @touchstart.capture="handleCardTouchStart"
+      @touchmove.capture="handleCardTouchMove"
+      @touchend.capture="handleCardTouchEnd"
+      @touchcancel.capture="handleCardTouchCancel"
+    >
       <!-- 图片轮播 -->
       <div class="section picture-section">
         <h3 class="section-title">图片</h3>
         <div v-if="(currentCard.picture && currentCard.picture.length > 0)" class="picture-carousel">
-          <van-swipe ref="imageSwipe" :show-indicators="true" :loop="false" class="image-swipe">
+          <!-- 当检测到纵向手势意图时，启用遮罩以彻底隔离轮播触摸（iOS Safari 更可靠） -->
+          <div v-if="disableSwipePointer" class="swipe-mask"></div>
+          <van-swipe
+            ref="imageSwipe"
+            :show-indicators="true"
+            :loop="false"
+            :touchable="imageSwipeTouchable"
+            :stop-propagation="false"
+            :class="['image-swipe', { 'disable-pointer': disableSwipePointer }]"
+          >
             <van-swipe-item v-for="(pic, idx) in currentCard.picture" :key="idx">
               <img :src="getResourceUrl(pic)" class="picture" alt="单词图片" />
             </van-swipe-item>
@@ -126,7 +142,15 @@
       <div class="section example-section">
         <h3 class="section-title">例句</h3>
         <div v-if="(parsedExamples.length > 0)" class="example-carousel">
-          <van-swipe ref="exampleSwipe" :show-indicators="true" :loop="false" class="example-swipe">
+          <div v-if="disableSwipePointer" class="swipe-mask"></div>
+          <van-swipe
+            ref="exampleSwipe"
+            :show-indicators="true"
+            :loop="false"
+            :touchable="exampleSwipeTouchable"
+            :stop-propagation="false"
+            :class="['example-swipe', { 'disable-pointer': disableSwipePointer }]"
+          >
             <van-swipe-item v-for="(ex, idx) in parsedExamples" :key="idx">
               <div class="example-item">
                 <div class="example-text">{{ ex.example }}</div>
@@ -178,6 +202,11 @@ export default {
     // 轮播引用
     const imageSwipe = ref(null)
     const exampleSwipe = ref(null)
+    const imageSwipeTouchable = ref(true)
+    const exampleSwipeTouchable = ref(true)
+    const disableSwipePointer = ref(false)
+    const touchStartX = ref(0)
+    const touchStartY = ref(0)
 
     // 音频播放
     const currentAudio = ref(null)
@@ -321,6 +350,53 @@ export default {
       await loadWordCards()
     }
 
+    // 在卡片区域中根据手势方向动态允许或禁用轮播的触摸，以优先保证垂直滚动
+    const handleCardTouchStart = (e) => {
+      const t = e.touches[0]
+      touchStartX.value = t.clientX
+      touchStartY.value = t.clientY
+      imageSwipeTouchable.value = true
+      exampleSwipeTouchable.value = true
+      // 初始优先保障垂直滚动体验：临时关闭轮播指针事件
+      disableSwipePointer.value = true
+    }
+
+    const handleCardTouchMove = (e) => {
+      const t = e.touches[0]
+      const dx = t.clientX - touchStartX.value
+      const dy = t.clientY - touchStartY.value
+      const absX = Math.abs(dx)
+      const absY = Math.abs(dy)
+      // 明显垂直：禁用轮播触摸并关闭指针事件，确保页面滚动不中断
+      const verticalIntent = absY > absX && absY > 6
+      const horizontalIntent = absX > absY && absX > 6
+      if (verticalIntent) {
+        imageSwipeTouchable.value = false
+        exampleSwipeTouchable.value = false
+        disableSwipePointer.value = true
+      } else if (horizontalIntent) {
+        imageSwipeTouchable.value = true
+        exampleSwipeTouchable.value = true
+        disableSwipePointer.value = false
+      }
+    }
+
+    const handleCardTouchEnd = () => {
+      imageSwipeTouchable.value = true
+      exampleSwipeTouchable.value = true
+      touchStartX.value = 0
+      touchStartY.value = 0
+      disableSwipePointer.value = false
+    }
+
+    const handleCardTouchCancel = () => {
+      imageSwipeTouchable.value = true
+      exampleSwipeTouchable.value = true
+      touchStartX.value = 0
+      touchStartY.value = 0
+      disableSwipePointer.value = false
+    }
+
     // 图片轮播控制
     const prevImage = () => imageSwipe.value?.prev && imageSwipe.value.prev()
     const nextImage = () => imageSwipe.value?.next && imageSwipe.value.next()
@@ -380,9 +456,15 @@ export default {
       if (!currentCard.value) return
       try {
         finishing.value = true
+        // 保护性校验：确保 word_type 只能是 1（单词）或 2（短语），非法则回退为 1
+        const rawWordType = Number(currentCard.value.word_type)
+        const safeWordType = (rawWordType === 1 || rawWordType === 2) ? rawWordType : 1
+        if (safeWordType !== rawWordType) {
+          console.warn('学习卡片的 word_type 非法，已回退为 1（单词）：', rawWordType, currentCard.value)
+        }
         const payload = {
           word_id: currentCard.value.id,
-          op: PRACTISE_OPERATION.COMPLETE
+          word_type: safeWordType
         }
         await finishStudy(payload)
         showToast({ message: '已完成学习', type: 'success' })
@@ -422,6 +504,14 @@ export default {
       // 轮播
       imageSwipe,
       exampleSwipe,
+      disableSwipePointer,
+      // 轮播触摸开关与手势处理
+      imageSwipeTouchable,
+      exampleSwipeTouchable,
+      handleCardTouchStart,
+      handleCardTouchMove,
+      handleCardTouchEnd,
+      handleCardTouchCancel,
       prevImage,
       nextImage,
       prevExample,
@@ -477,14 +567,18 @@ export default {
 
 .card-container {
   padding: 16px;
+  /* 优化垂直滚动体验，避免滚动链和橡皮筋造成误判为页面尽头 */
+  overscroll-behavior-y: contain;
 }
 
 .section { margin-bottom: 16px; }
 .section-title { font-size: 14px; color: #646566; margin-bottom: 8px; text-align: center; }
 
 .picture-carousel { position: relative; }
-.image-swipe { width: 100%; height: 220px; background: #fff; border-radius: 12px; overflow: hidden; }
+.image-swipe { width: 100%; height: 220px; background: #fff; border-radius: 12px; overflow: hidden; touch-action: pan-y; }
 .picture { width: 100%; height: 100%; object-fit: cover; }
+.swipe-mask { position: absolute; inset: 0; z-index: 10; background: transparent; }
+.disable-pointer { pointer-events: none; }
 .below-controls { display: flex; justify-content: center; gap: 8px; margin-top: 10px; }
 .ctrl-btn { width: 30px; height: 30px; border-radius: 50%; border: none; background: rgba(0,0,0,0.35); color: #fff; font-size: 16px; cursor: pointer; }
 
@@ -504,7 +598,7 @@ export default {
 .translation { white-space: pre-line; font-size: 16px; color: #323233; line-height: 1.6; }
 
 .example-carousel { position: relative; }
-.example-swipe { width: 100%; min-height: 120px; background: #fff; border-radius: 12px; overflow: hidden; }
+.example-swipe { width: 100%; min-height: 120px; background: #fff; border-radius: 12px; overflow: hidden; touch-action: pan-y; }
 .example-item { padding: 16px; }
 .example-text { font-size: 15px; color: #323233; line-height: 1.6; margin-bottom: 6px; }
 .example-translation { font-size: 14px; color: #646566; white-space: pre-line; line-height: 1.6; }
