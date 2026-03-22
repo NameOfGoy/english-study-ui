@@ -46,11 +46,19 @@ export function updateWord(data) {
 }
 
 // 批量导入单词
-export function importWord(filePath) {
+export function importWord(filePath, fileName) {
   return request({
     url: '/v1/dictionary/operation/import',
     method: 'post',
-    data: { file_path: filePath }
+    data: { file_path: filePath, file_name: fileName }
+  })
+}
+
+// 获取导入任务列表
+export function getImportTaskList() {
+  return request({
+    url: '/v1/dictionary/operation/import/tasks',
+    method: 'get'
   })
 }
 

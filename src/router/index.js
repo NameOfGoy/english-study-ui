@@ -100,6 +100,26 @@ const routes = [
     }
   },
   {
+    path: '/dictionary/words',
+    name: 'DictionaryWords',
+    component: () => import('@/views/DictionaryWords.vue'),
+    meta: {
+      title: '词典-单词',
+      requiresAuth: true,
+      showTabbar: true
+    }
+  },
+  {
+    path: '/dictionary/phrases',
+    name: 'DictionaryPhrases',
+    component: () => import('@/views/DictionaryPhrases.vue'),
+    meta: {
+      title: '词典-短语',
+      requiresAuth: true,
+      showTabbar: true
+    }
+  },
+  {
     path: '/profile',
     name: 'Profile',
     component: () => import('@/views/Profile.vue'),

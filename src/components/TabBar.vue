@@ -51,11 +51,11 @@ export default {
     // 监听路由变化
     watch(() => route.path, (newPath) => {
       let newActive = 'practice'
-      if (newPath === '/practice') {
+      if (newPath.startsWith('/practice')) {
         newActive = 'practice'
-      } else if (newPath === '/dictionary') {
+      } else if (newPath.startsWith('/dictionary')) {
         newActive = 'dictionary'
-      } else if (newPath === '/profile') {
+      } else if (newPath.startsWith('/profile')) {
         newActive = 'profile'
       }
       active.value = newActive

@@ -56,6 +56,24 @@ export function uploadAvatar(file, userId) {
 }
 
 /**
+ * 搜索图片(必应)
+ * @param {string} query - 搜索关键词
+ * @param {number} offset - 分页偏移
+ * @param {number} count - 每页数量
+ * @returns {Promise} 返回包含images字段的响应
+ */
+export function searchImages(query, offset = 0, count = 20) {
+  return request({
+    url: '/v1/file-service/search-images',
+    method: 'get',
+    params: { query, offset, count },
+    headers: {
+      'Authorization': `Bearer ${getToken()}`
+    }
+  })
+}
+
+/**
  * 创建文件选择器
  * @param {string} accept - 接受的文件类型，默认为图片
  * @param {boolean} multiple - 是否允许多选

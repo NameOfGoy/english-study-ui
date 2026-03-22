@@ -58,6 +58,9 @@
         />
       </van-cell-group>
       
+      <!-- 导入任务 -->
+      <ImportTaskList />
+
       <!-- 操作按钮 -->
       <div class="profile-actions">
         <van-button
@@ -125,9 +128,11 @@ import { showToast, showConfirmDialog } from 'vant'
 import { getUserInfo, updateUserInfo, updateUserAvatar } from '@/api/user'
 import { getUserInfo as getLocalUserInfo, setUserInfo, clearAllData } from '@/utils/auth'
 import { getResourceUrl } from '@/utils/request'
+import ImportTaskList from '@/components/profile/ImportTaskList.vue'
 
 export default {
   name: 'Profile',
+  components: { ImportTaskList },
   setup() {
     const router = useRouter()
     const userInfo = reactive({
