@@ -74,7 +74,10 @@
 
         <!-- 词性列表 -->
         <div v-if="selectedWord.pos && selectedWord.pos.length" class="pos-section">
-          <h3>词性释义</h3>
+          <h3>
+            词性释义
+            <van-icon name="edit" class="edit-trans-btn" @click="openTransEdit" />
+          </h3>
           <div v-for="(pos, index) in selectedWord.pos" :key="index" class="pos-item">
             <div class="pos-header">
               <div class="pos-type">{{ getPosName(pos.pos) }}</div>
@@ -118,11 +121,25 @@
         </div>
       </template>
     </van-card>
+
+    <TranslationEditModal
+      :show="showTransEdit"
+      :word="selectedWord.word"
+      :items="transItems"
+      :submitting="savingTrans"
+      @close="showTransEdit = false"
+      @submit="onSaveTranslation"
+    />
   </div>
 </template>
 
 <script setup>
-defineProps({
+import { ref, computed } from 'vue'
+import { showToast } from 'vant'
+import { updateWordTranslation } from '@/api/dictionary'
+import TranslationEditModal from '@/components/dictionary/TranslationEditModal.vue'
+
+const props = defineProps({
   selectedWord: {
     type: Object,
     required: true
@@ -133,7 +150,52 @@ defineProps({
   }
 })
 
-defineEmits(['back', 'play-audio', 'open-picture'])
+const emit = defineEmits(['back', 'play-audio', 'open-picture', 'translation-updated'])
+
+const showTransEdit = ref(false)
+const savingTrans = ref(false)
+
+const transItems = computed(() =>
+  (props.selectedWord.pos || []).map(p => ({
+    id: p.id,
+    pos: p.pos,
+    pos_label: posEnglishMap[p.pos] || '',
+    translation: p.translation || ''
+  }))
+)
+
+const openTransEdit = () => {
+  if (!transItems.value.length) {
+    showToast('该词条无可编辑的释义')
+    return
+  }
+  showTransEdit.value = true
+}
+
+const onSaveTranslation = async (newItems) => {
+  savingTrans.value = true
+  try {
+    const resp = await updateWordTranslation(
+      newItems.map(i => ({ word_pos_id: i.id, translation: i.translation }))
+    )
+    if (resp.code === 0) {
+      // 本地更新 selectedWord.pos[i].translation
+      newItems.forEach(it => {
+        const pos = (props.selectedWord.pos || []).find(p => p.id === it.id)
+        if (pos) pos.translation = it.translation
+      })
+      showToast({ message: '释义已更新', type: 'success' })
+      showTransEdit.value = false
+      emit('translation-updated')
+    } else {
+      showToast(resp.message || '保存失败')
+    }
+  } catch (e) {
+    showToast('网络错误')
+  } finally {
+    savingTrans.value = false
+  }
+}
 
 // 词性映射 - 根据后端数字定义
 const posChineseMap = {
@@ -383,6 +445,17 @@ const getExchangeName = (exchangeKey) => {
 }
 
 .pos-translation { font-size: 17px; color: #2c3e50; font-weight: 600; line-height: 1.5; margin-top: 8px; }
+.edit-trans-btn {
+  margin-left: 8px;
+  font-size: 14px;
+  color: #1989fa;
+  cursor: pointer;
+  vertical-align: middle;
+  padding: 2px 6px;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+.edit-trans-btn:active { background: rgba(25, 137, 250, 0.15); }
 
 /* 变化形式样式 */
 .exchange-section { margin-top: 15px; background: white; border-radius: 8px; padding: 15px; }

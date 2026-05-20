@@ -54,11 +54,12 @@ export function importWord(filePath, fileName) {
   })
 }
 
-// 获取导入任务列表
-export function getImportTaskList() {
+// 获取导入任务列表 (params 支持 start_date, end_date, days)
+export function getImportTaskList(params = {}) {
   return request({
     url: '/v1/dictionary/operation/import/tasks',
-    method: 'get'
+    method: 'get',
+    params
   })
 }
 
@@ -252,6 +253,33 @@ export function generatePhrasePicture(phraseId) {
 export function updatePhrasePicture(data) {
   return request({
     url: '/v1/dictionary/phrase/picture/update',
+    method: 'post',
+    data
+  })
+}
+
+// 批量更新单词释义 (按 word_pos_id)
+export function updateWordTranslation(items) {
+  return request({
+    url: '/v1/dictionary/word/translation/update',
+    method: 'post',
+    data: { items }
+  })
+}
+
+// 中文搜索stardict词库
+export function searchStardict(params) {
+  return request({
+    url: '/v1/dictionary/search/stardict',
+    method: 'get',
+    params
+  })
+}
+
+// 批量添加stardict词条到个人词典
+export function batchAddStardict(data) {
+  return request({
+    url: '/v1/dictionary/search/batch-add',
     method: 'post',
     data
   })

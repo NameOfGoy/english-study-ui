@@ -1,28 +1,29 @@
 <template>
-  <van-tabbar v-model="active" @change="onChange" fixed>
+  <van-tabbar v-model="active" @change="onChange" fixed active-color="#1989fa" inactive-color="#969799">
+    <van-tabbar-item name="dashboard" to="/dashboard">
+      <template #icon="{ active }">
+        <van-icon name="wap-home-o" class="tab-icon" :class="{ active }" />
+      </template>
+      首页
+    </van-tabbar-item>
+
     <van-tabbar-item name="practice" to="/practice">
       <template #icon="{ active }">
-        <img class="tab-icon" :class="{ active }" 
-             :src="active ? practiceActiveIcon : practiceIcon" 
-             alt="练习" />
+        <van-icon name="bulb-o" class="tab-icon" :class="{ active }" />
       </template>
       练习
     </van-tabbar-item>
-    
+
     <van-tabbar-item name="dictionary" to="/dictionary">
       <template #icon="{ active }">
-        <img class="tab-icon" :class="{ active }" 
-             :src="active ? dictionaryActiveIcon : dictionaryIcon" 
-             alt="词典" />
+        <van-icon name="notes-o" class="tab-icon" :class="{ active }" />
       </template>
       词典
     </van-tabbar-item>
-    
+
     <van-tabbar-item name="profile" to="/profile">
       <template #icon="{ active }">
-        <img class="tab-icon" :class="{ active }" 
-             :src="active ? profileActiveIcon : profileIcon" 
-             alt="我的" />
+        <van-icon name="user-o" class="tab-icon" :class="{ active }" />
       </template>
       我的
     </van-tabbar-item>
@@ -30,28 +31,26 @@
 </template>
 
 <script>
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-
-// 导入图标资源
-import practiceIcon from '@/images/tab/practice.jpg'
-import practiceActiveIcon from '@/images/tab/practice_active.jpg'
-import dictionaryIcon from '@/images/tab/dictionary.png'
-import dictionaryActiveIcon from '@/images/tab/dictionary_active.png'
-import profileIcon from '@/images/tab/profile.png'
-import profileActiveIcon from '@/images/tab/profile_active.png'
 
 export default {
   name: 'TabBar',
   setup() {
     const route = useRoute()
     const router = useRouter()
-    const active = ref('practice')
+    const active = ref('dashboard')
+
+    const tabs = ['dashboard', 'practice', 'dictionary', 'profile']
+
+    const activeIndex = computed(() => Math.max(0, tabs.indexOf(active.value)))
 
     // 监听路由变化
     watch(() => route.path, (newPath) => {
-      let newActive = 'practice'
-      if (newPath.startsWith('/practice')) {
+      let newActive = 'dashboard'
+      if (newPath.startsWith('/dashboard')) {
+        newActive = 'dashboard'
+      } else if (newPath.startsWith('/practice')) {
         newActive = 'practice'
       } else if (newPath.startsWith('/dictionary')) {
         newActive = 'dictionary'
@@ -68,13 +67,8 @@ export default {
 
     return {
       active,
-      onChange,
-      practiceIcon,
-      practiceActiveIcon,
-      dictionaryIcon,
-      dictionaryActiveIcon,
-      profileIcon,
-      profileActiveIcon
+      activeIndex,
+      onChange
     }
   }
 }
@@ -82,86 +76,93 @@ export default {
 
 <style lang="scss" scoped>
 .tab-icon {
-  width: 24px;
-  height: 24px;
+  font-size: 22px;
   transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   position: relative;
   z-index: 2;
-  
+
   &.active {
-    transform: scale(1.15) translateY(-2px);
-    filter: drop-shadow(0 2px 4px rgba(76, 175, 80, 0.3));
+    transform: scale(1.18) translateY(-2px);
+    filter: drop-shadow(0 2px 6px rgba(25, 137, 250, 0.35));
   }
 }
 
 :deep(.van-tabbar) {
-  background: white;
-  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
-  border-top: 1px solid #eee;
-  position: relative;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.06);
+  border-top: 1px solid rgba(0, 0, 0, 0.04);
+  position: fixed;
   overflow: hidden;
-  
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 33.33%;
-    height: 3px;
-    background: linear-gradient(90deg, #4CAF50, #45a049);
-    transform: translateX(calc(var(--active-index, 0) * 100%));
-    transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    z-index: 1;
-  }
 }
 
 :deep(.van-tabbar-item) {
   font-size: 12px;
-  position: relative;
   transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  
+
   .van-tabbar-item__text {
     transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     position: relative;
     z-index: 2;
+    margin-top: 2px;
   }
-  
+
   &:not(.van-tabbar-item--active) {
     .tab-icon {
       transform: scale(1);
-      opacity: 0.7;
+      opacity: 0.75;
     }
-    
+
     .van-tabbar-item__text {
-      opacity: 0.7;
+      opacity: 0.75;
     }
   }
-  
+
   &:active {
-    transform: scale(0.95);
+    transform: scale(0.94);
   }
 }
 
 :deep(.van-tabbar-item--active) {
-  color: #1989fa;
-  
   .van-tabbar-item__text {
     font-weight: 600;
     transform: translateY(-1px);
   }
-  
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    width: 6px;
+    height: 6px;
+    background: #1989fa;
+    border-radius: 50%;
+    transform: translateX(-50%);
+    animation: dotPop 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
+    opacity: 0.9;
+  }
+
   &::after {
     content: '';
     position: absolute;
-    bottom: 0;
+    bottom: 8px;
     left: 50%;
-    width: 40px;
-    height: 40px;
-    background: radial-gradient(circle, rgba(76, 175, 80, 0.1) 0%, transparent 70%);
+    width: 36px;
+    height: 36px;
+    background: radial-gradient(circle, rgba(25, 137, 250, 0.12) 0%, transparent 70%);
     transform: translateX(-50%);
     border-radius: 50%;
     animation: ripple 0.6s ease-out;
+    pointer-events: none;
   }
+}
+
+@keyframes dotPop {
+  0%   { transform: translateX(-50%) scale(0); opacity: 0; }
+  60%  { transform: translateX(-50%) scale(1.3); opacity: 1; }
+  100% { transform: translateX(-50%) scale(1); opacity: 0.9; }
 }
 
 @keyframes ripple {

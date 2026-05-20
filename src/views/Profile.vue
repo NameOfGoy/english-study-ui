@@ -58,6 +58,16 @@
         />
       </van-cell-group>
       
+      <!-- 我的标签 -->
+      <van-cell-group style="margin-top: 12px;">
+        <van-cell
+          title="我的标签"
+          icon="label-o"
+          is-link
+          @click="$router.push('/profile/tags')"
+        />
+      </van-cell-group>
+
       <!-- 导入任务 -->
       <ImportTaskList />
 

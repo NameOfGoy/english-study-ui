@@ -7,7 +7,17 @@ import Dictionary from '@/views/Dictionary.vue'
 const routes = [
   {
     path: '/',
-    redirect: '/practice'
+    redirect: '/dashboard'
+  },
+  {
+    path: '/dashboard',
+    name: 'Dashboard',
+    component: () => import('@/views/Dashboard.vue'),
+    meta: {
+      title: '首页',
+      requiresAuth: true,
+      showTabbar: true
+    }
   },
   {
     path: '/login',
@@ -128,6 +138,26 @@ const routes = [
       requiresAuth: true,
       showTabbar: true
     }
+  },
+  {
+    path: '/profile/tags',
+    name: 'TagManage',
+    component: () => import('@/views/TagManage.vue'),
+    meta: {
+      title: '我的标签',
+      requiresAuth: true,
+      showTabbar: false
+    }
+  },
+  {
+    path: '/profile/import-tasks',
+    name: 'ImportTaskHistory',
+    component: () => import('@/views/ImportTaskHistory.vue'),
+    meta: {
+      title: '导入任务历史',
+      requiresAuth: true,
+      showTabbar: false
+    }
   }
 ]
 
@@ -159,7 +189,7 @@ router.beforeEach((to, from, next) => {
   
   // 如果已登录用户访问登录或注册页面，重定向到首页
   if ((to.name === 'Login' || to.name === 'Register') && getToken()) {
-    next('/practice')
+    next('/dashboard')
     return
   }
   

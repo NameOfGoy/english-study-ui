@@ -19,8 +19,8 @@
             {{ mode.label }}
           </div>
         </div>
-        <!-- 右侧书签切换：单词 / 短语 -->
-        <div class="resource-switcher">
+        <!-- 右侧书签切换：单词 / 短语 (仅在列表页显示，进入详情后隐藏) -->
+        <div v-if="!selectedWord && !selectedPhrase" class="resource-switcher">
           <div
             class="bookmark-option"
             :class="{ active: resourceType === 'word' }"
@@ -136,7 +136,7 @@
                     v-for="tag in word.tags || []"
                     :key="tag.id"
                     class="tag-item"
-                    :style="{ backgroundColor: tag.color }"
+                    :style="{ backgroundColor: tag.style || tag.color || '#1989fa' }"
                   >
                     {{ tag.name }}
                   </span>
@@ -161,7 +161,7 @@
                     v-for="tag in item.tags || []"
                     :key="tag.id"
                     class="tag-item"
-                    :style="{ backgroundColor: tag.color }"
+                    :style="{ backgroundColor: tag.style || tag.color || '#1989fa' }"
                   >
                     {{ tag.name }}
                   </span>
@@ -263,6 +263,23 @@
 
     <SearchModal :show="showSearchModal" :type="resourceType" @close="closeSearchModal" @select="selectSearchResult" />
 
+    <SearchAddModal
+      :show="showSearchAddModal"
+      @close="showSearchAddModal = false"
+      @added="showSearchAddModal = false"
+    />
+
+    <ShareGenerateModal
+      :show="showShareGenerateModal"
+      @close="showShareGenerateModal = false"
+    />
+
+    <ShareImportModal
+      :show="showShareImportModal"
+      @close="showShareImportModal = false"
+      @imported="initializeWordList"
+    />
+
 
     <!-- 浮动按钮 -->
     <div v-if="!selectedWord && !selectedPhrase && currentDisplayMode === 'word'" class="add-word-fab" @click="showActionSheet = true">
@@ -342,6 +359,9 @@ import { showToast } from 'vant'
 
 // Sub-components
 import SearchModal from '@/components/dictionary/SearchModal.vue'
+import SearchAddModal from '@/components/dictionary/SearchAddModal.vue'
+import ShareGenerateModal from '@/components/dictionary/ShareGenerateModal.vue'
+import ShareImportModal from '@/components/dictionary/ShareImportModal.vue'
 import WordDetailView from '@/components/dictionary/WordDetailView.vue'
 import PhraseDetailView from '@/components/dictionary/PhraseDetailView.vue'
 import PictureModal from '@/components/dictionary/PictureModal.vue'
@@ -488,10 +508,16 @@ const addingPhrase = ref(false)
 
 const showSearchModal = ref(false)
 const showActionSheet = ref(false)
+const showSearchAddModal = ref(false)
+const showShareGenerateModal = ref(false)
+const showShareImportModal = ref(false)
 const actionSheetActions = computed(() => {
   const actions = [
     { name: resourceType.value === 'word' ? '添加单词' : '添加短语', value: 'add' },
     { name: '导入文件', value: 'import' },
+    { name: '中文搜索添加', value: 'search-add' },
+    { name: '生成分享码', value: 'share-generate' },
+    { name: '使用分享码导入', value: 'share-import' },
   ]
   return actions
 })
@@ -1416,6 +1442,12 @@ const onActionSheetSelect = (action) => {
     }
   } else if (action.value === 'import') {
     handleImportFile()
+  } else if (action.value === 'search-add') {
+    showSearchAddModal.value = true
+  } else if (action.value === 'share-generate') {
+    showShareGenerateModal.value = true
+  } else if (action.value === 'share-import') {
+    showShareImportModal.value = true
   }
 }
 

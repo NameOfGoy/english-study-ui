@@ -12,7 +12,9 @@
     <div v-if="expanded" class="task-content">
       <van-loading v-if="loading && tasks.length === 0" size="24px" vertical>加载中...</van-loading>
 
-      <van-empty v-else-if="tasks.length === 0" description="暂无导入任务" image="search" />
+      <van-empty v-else-if="tasks.length === 0" description="最近3天暂无导入任务" image="search">
+        <van-button round size="small" type="primary" @click="$router.push('/profile/import-tasks')">查看全部历史</van-button>
+      </van-empty>
 
       <div v-else class="task-cards">
         <div v-for="task in tasks" :key="task.id" class="task-card" :class="statusClass(task.status)">
@@ -56,6 +58,12 @@
           <div class="task-time">{{ task.created_at }}</div>
         </div>
       </div>
+
+      <!-- 查看全部 -->
+      <div v-if="tasks.length > 0" class="view-all" @click="$router.push('/profile/import-tasks')">
+        <span>查看全部历史</span>
+        <van-icon name="arrow" />
+      </div>
     </div>
   </div>
 </template>
@@ -91,7 +99,7 @@ const toggleFailWords = (id) => {
 const loadTasks = async () => {
   try {
     loading.value = true
-    const resp = await getImportTaskList()
+    const resp = await getImportTaskList({ days: 3 })
     if (resp.code === 0) {
       tasks.value = resp.tasks || []
     }
@@ -282,5 +290,22 @@ onUnmounted(() => {
   font-size: 11px;
   color: #c8c9cc;
   text-align: right;
+}
+
+.view-all {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 12px;
+  margin-top: 12px;
+  font-size: 13px;
+  color: #1989fa;
+  cursor: pointer;
+  border-top: 1px solid #f0f0f0;
+
+  &:active {
+    opacity: 0.7;
+  }
 }
 </style>

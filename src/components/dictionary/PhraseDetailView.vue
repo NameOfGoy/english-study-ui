@@ -47,7 +47,10 @@
             </div>
           </div>
           <div class="phrase-translation-section">
-            <h3 class="phrase-section-title">释义</h3>
+            <h3 class="phrase-section-title">
+              释义
+              <van-icon name="edit" class="edit-trans-btn" @click="openTransEdit" />
+            </h3>
             <p class="definition-text">{{ selectedPhrase.translation || '暂无释义' }}</p>
           </div>
 
@@ -78,13 +81,26 @@
         </div>
       </template>
     </van-card>
+
+    <TranslationEditModal
+      :show="showTransEdit"
+      :word="selectedPhrase.word"
+      :items="transItems"
+      :submitting="savingTrans"
+      @close="showTransEdit = false"
+      @submit="onSaveTranslation"
+    />
   </div>
 </template>
 
 <script setup>
+import { ref, computed } from 'vue'
+import { showToast } from 'vant'
 import { getResourceUrl } from '@/utils/request'
+import { updateWordPhrase, getWordPhraseDetail } from '@/api/dictionary'
+import TranslationEditModal from '@/components/dictionary/TranslationEditModal.vue'
 
-defineProps({
+const props = defineProps({
   selectedPhrase: {
     type: Object,
     required: true
@@ -95,10 +111,69 @@ defineProps({
   }
 })
 
-defineEmits(['back', 'play-audio', 'open-picture'])
+const emit = defineEmits(['back', 'play-audio', 'open-picture', 'translation-updated'])
+
+const showTransEdit = ref(false)
+const savingTrans = ref(false)
+
+const transItems = computed(() => [{
+  id: props.selectedPhrase.id,
+  pos: 0,
+  pos_label: '',
+  translation: props.selectedPhrase.translation || ''
+}])
+
+const openTransEdit = () => {
+  showTransEdit.value = true
+}
+
+const onSaveTranslation = async (newItems) => {
+  if (!newItems.length) return
+  savingTrans.value = true
+  try {
+    // 短语复用 UpdateWordPhrase，但需要先 fetch 详情拿完整字段
+    const detail = await getWordPhraseDetail(props.selectedPhrase.id)
+    if (detail.code !== 0 || !detail.data) {
+      showToast(detail.message || '获取短语详情失败')
+      return
+    }
+    const resp = await updateWordPhrase({
+      id: props.selectedPhrase.id,
+      phrase: detail.data.phrase,
+      translation: newItems[0].translation,
+      pronunciation: detail.data.pronunciation,
+      example: detail.data.example || [],
+      picture: detail.data.picture || ''
+    })
+    if (resp.code === 0) {
+      props.selectedPhrase.translation = newItems[0].translation
+      showToast({ message: '释义已更新', type: 'success' })
+      showTransEdit.value = false
+      emit('translation-updated')
+    } else {
+      showToast(resp.message || '保存失败')
+    }
+  } catch (e) {
+    showToast('网络错误')
+  } finally {
+    savingTrans.value = false
+  }
+}
 </script>
 
 <style lang="scss" scoped>
+.edit-trans-btn {
+  margin-left: 8px;
+  font-size: 14px;
+  color: #1989fa;
+  cursor: pointer;
+  vertical-align: middle;
+  padding: 2px 6px;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+.edit-trans-btn:active { background: rgba(25, 137, 250, 0.15); }
+
 .phrase-detail {
   background: white;
   border-radius: 16px;
