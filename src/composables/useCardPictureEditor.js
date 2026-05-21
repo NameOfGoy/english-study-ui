@@ -138,6 +138,7 @@ export function useCardPictureEditor() {
       const file = await selectImageFile()
       selectedImageFile.value = file
       const reader = new FileReader()
+      reader.onerror = () => showToast('图片读取失败, 请重试')
       reader.onload = (e) => {
         selectedImageSrc.value = e.target.result
         showCropModal.value = true
@@ -234,6 +235,10 @@ export function useCardPictureEditor() {
       const ext = (blob.type.split('/')[1] || 'png')
       selectedImageFile.value = new File([blob], `search.${ext}`, { type: blob.type })
       const reader = new FileReader()
+      reader.onerror = () => {
+        closeToast()
+        showToast('图片读取失败, 请重试')
+      }
       reader.onload = (e) => {
         if (startPosId !== editingPosId.value || !showPictureModal.value) return
         selectedImageSrc.value = e.target.result

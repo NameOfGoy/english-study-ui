@@ -52,6 +52,10 @@ export function useAudioPlayer() {
       currentAudio.value.onended = () => {
         playingType.value = null
       }
+      // Audio 元素自身的 error 事件 (网络 / 解码错误), 防止 UI 卡在"播放中"状态
+      currentAudio.value.onerror = () => {
+        playingType.value = null
+      }
     } catch (e) {
       showToast({ message: '音频资源错误', type: 'fail' })
       playingType.value = null

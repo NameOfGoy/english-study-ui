@@ -42,7 +42,8 @@ export function usePracticeCards({ loadApiFn, finishApiFn, modeLabel, loadParams
   }
 
   const finishCard = async (operation) => {
-    if (!currentCard.value) return
+    // 入口守卫: 双击仍可能在 disabled 状态生效前进来, 必须再 check 一次
+    if (finishing.value || !currentCard.value) return
     try {
       finishing.value = true
       const rawWordType = Number(currentCard.value.word_type)

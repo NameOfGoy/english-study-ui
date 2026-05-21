@@ -380,7 +380,6 @@ const props = defineProps({
   }
 })
 
-console.log('Dictionary setup() 函数开始执行')
 
 // 路由
 const router = useRouter()
@@ -590,7 +589,6 @@ const categorizePhrasesByLetter = (phrases) => {
 // ========== 状态/标签关联 ==========
 
 const associateStatusAndTagsToWords = () => {
-  console.log('开始关联状态和标签数据到单词')
   const statusMap = {}
   statusWords.value.forEach(item => {
     const wordId = item.word_id ?? item.wordId
@@ -609,7 +607,6 @@ const associateStatusAndTagsToWords = () => {
     tags: tagMap[word.id] || []
   }))
   wordsByLetter.value = categorizeWordsByLetter(allWords.value)
-  console.log(`数据关联完成，已更新 ${allWords.value.length} 个单词`)
 }
 
 const associateStatusAndTagsToPhrases = () => {
@@ -1332,21 +1329,36 @@ const openImageSearch = () => {
   showImageSearchModal.value = true
 }
 
+// 当前在飞的图搜代理 fetch, 切卡 / 关弹窗时 abort, 避免旧响应贴到新卡
+let imageSearchAbort = null
+
 const onImageSearchSelect = async (imageUrl) => {
   showImageSearchModal.value = false
+  // 抓快照: 当前编辑的是单词还是短语 / 哪个 pos, 用于 await 后判断 selection 是否仍在
+  const snapshotWordId = selectedWord.value?.id || null
+  const snapshotPhraseId = selectedPhrase.value?.id || null
+  const snapshotPosIndex = currentPosIndex.value
+  if (imageSearchAbort) imageSearchAbort.abort()
+  imageSearchAbort = new AbortController()
+  const ac = imageSearchAbort
+
   showToast({ message: '正在加载图片...', type: 'loading', duration: 0, forbidClick: true })
   try {
     const proxyUrl = `/api/v1/file-service/proxy-image?url=${encodeURIComponent(imageUrl)}`
     const response = await fetch(proxyUrl, {
-      headers: { 'Authorization': `Bearer ${getToken()}` }
+      headers: { 'Authorization': `Bearer ${getToken()}` },
+      signal: ac.signal,
     })
-    if (!response.ok) {
-      throw new Error(`proxy 返回 ${response.status}`)
-    }
+    if (!response.ok) throw new Error(`proxy 返回 ${response.status}`)
     const blob = await response.blob()
-    if (!blob.type.startsWith('image/')) {
-      throw new Error(`非图片响应: ${blob.type}`)
+    // 用户切到别的词或别的 pos 了, 丢弃结果
+    if ((snapshotWordId !== (selectedWord.value?.id || null))
+      || (snapshotPhraseId !== (selectedPhrase.value?.id || null))
+      || (snapshotPosIndex !== currentPosIndex.value)) {
+      closeToast()
+      return
     }
+    if (!blob.type.startsWith('image/')) throw new Error(`非图片响应: ${blob.type}`)
     const ext = blob.type.split('/')[1] || 'png'
     selectedImageFile.value = new File([blob], `search_image.${ext}`, { type: blob.type })
     const reader = new FileReader()
@@ -1356,11 +1368,18 @@ const onImageSearchSelect = async (imageUrl) => {
       closeToast()
       showToast({ message: '请裁剪图片', type: 'success' })
     }
+    reader.onerror = () => {
+      closeToast()
+      showToast('图片读取失败, 请重试')
+    }
     reader.readAsDataURL(blob)
   } catch (err) {
+    if (err?.name === 'AbortError') return
     console.error('加载搜索图片失败:', err)
     closeToast()
     showToast('图片加载失败，请重试')
+  } finally {
+    if (imageSearchAbort === ac) imageSearchAbort = null
   }
 }
 
@@ -1369,6 +1388,7 @@ const openImageUpload = async () => {
     const file = await selectImageFile()
     selectedImageFile.value = file
     const reader = new FileReader()
+    reader.onerror = () => showToast('图片读取失败, 请重试')
     reader.onload = (e) => {
       selectedImageSrc.value = e.target.result
       showCropModal.value = true
