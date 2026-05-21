@@ -912,8 +912,9 @@ const initializeWordList = async () => {
     await nextTick()
     setupScrollListener()
   } catch (err) {
+    // 不要把 err.message 直接吐给用户 (可能含内部路径/接口细节), 详细栈走 console
     console.error('初始化单词列表失败:', err)
-    error.value = '网络错误，请稍后重试: ' + err.message
+    error.value = '网络错误，请稍后重试'
   } finally {
     initialLoading.value = false
   }
@@ -1171,18 +1172,11 @@ const playAudio = (audioUrl, index = 'default') => {
       audio = new Audio(getResourceUrl(audioUrl))
     }
     audio.currentTime = 0
-    const handleEnded = () => {
-      audioPlaying.value[index] = false
-      audio.removeEventListener('ended', handleEnded)
-      audio.removeEventListener('error', handleError)
-    }
-    const handleError = () => {
-      audioPlaying.value[index] = false
-      audio.removeEventListener('ended', handleEnded)
-      audio.removeEventListener('error', handleError)
-    }
-    audio.addEventListener('ended', handleEnded)
-    audio.addEventListener('error', handleError)
+    // 用 { once: true } 保证 listener 只触发一次后自动清理, 避免 cached audio 多次播放后 listener 累积
+    const handleEnded = () => { audioPlaying.value[index] = false }
+    const handleError = () => { audioPlaying.value[index] = false }
+    audio.addEventListener('ended', handleEnded, { once: true })
+    audio.addEventListener('error', handleError, { once: true })
     audio.play().catch(err => {
       console.error('音频播放失败:', err)
       audioPlaying.value[index] = false
@@ -1846,7 +1840,7 @@ onMounted(async () => {
     }
   } catch (err) {
     console.error('初始化失败:', err)
-    error.value = '初始化失败: ' + err.message
+    error.value = '初始化失败, 请下拉刷新或重新登录'
     initialLoading.value = false
   }
 })

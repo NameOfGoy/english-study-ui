@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { getToken } from '@/utils/auth'
+import { getToken, isTokenExpired, clearAllData } from '@/utils/auth'
 import { showToast } from 'vant'
 import Dictionary from '@/views/Dictionary.vue'
 
@@ -182,6 +182,13 @@ router.beforeEach((to, from, next) => {
         message: '请先登录',
         type: 'fail'
       })
+      next('/login')
+      return
+    }
+    // 主动检查 JWT exp; 过期则清缓存跳登录, 不依赖下一次 API 请求才发现
+    if (isTokenExpired()) {
+      clearAllData()
+      showToast({ message: '登录已过期, 请重新登录', type: 'fail' })
       next('/login')
       return
     }

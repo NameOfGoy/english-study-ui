@@ -113,7 +113,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import { getReviewWordCardList, finishReview } from '@/api/practise'
@@ -169,7 +169,6 @@ const onFinish = async (operation) => {
   }
 }
 
-watch([currentCard, reviewState], () => {})
 onMounted(() => loadWordCards())
 </script>
 

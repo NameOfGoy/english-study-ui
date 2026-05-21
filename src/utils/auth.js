@@ -3,6 +3,8 @@ const USER_INFO_KEY = 'english_study_user_info'
 const USER_ID_KEY = 'english_study_user_id'
 const REMEMBER_PASSWORD_KEY = 'english_study_remember_password'
 const SAVED_ACCOUNT_KEY = 'english_study_saved_account'
+// 注：密码明文写 localStorage 是已知风险（XSS / DevTools / 任何同源脚本都能读），
+// 用户主动保留这个体验（自动登录优先于安全），见 memory: feedback-remember-password
 const SAVED_PASSWORD_KEY = 'english_study_saved_password'
 
 // Token相关
@@ -21,7 +23,30 @@ export function removeToken() {
 // 用户信息相关
 export function getUserInfo() {
   const userInfo = localStorage.getItem(USER_INFO_KEY)
-  return userInfo ? JSON.parse(userInfo) : null
+  if (!userInfo) return null
+  try {
+    return JSON.parse(userInfo)
+  } catch (e) {
+    // 损坏/被篡改的 localStorage 不要让整个应用崩, 清掉重来
+    console.warn('getUserInfo: JSON 解析失败, 清空缓存', e)
+    localStorage.removeItem(USER_INFO_KEY)
+    return null
+  }
+}
+
+// 解析 JWT exp, 主动检查是否过期; 解析失败一律视为过期 (安全起见)
+export function isTokenExpired() {
+  const token = getToken()
+  if (!token) return true
+  try {
+    const parts = token.split('.')
+    if (parts.length !== 3) return true
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')))
+    if (!payload.exp) return true
+    return Date.now() >= payload.exp * 1000
+  } catch (e) {
+    return true
+  }
 }
 
 export function setUserInfo(userInfo) {
@@ -62,12 +87,18 @@ export function setSavedAccount(account) {
   localStorage.setItem(SAVED_ACCOUNT_KEY, account)
 }
 
+// 密码持久化：用户主动选择把密码缓存到 localStorage 换取自动登录体验。
+// 详见 memory: feedback-remember-password。不要再以"XSS 风险"为由把这里改成 no-op。
 export function getSavedPassword() {
   return localStorage.getItem(SAVED_PASSWORD_KEY) || ''
 }
 
 export function setSavedPassword(password) {
-  localStorage.setItem(SAVED_PASSWORD_KEY, password)
+  if (password) {
+    localStorage.setItem(SAVED_PASSWORD_KEY, password)
+  } else {
+    localStorage.removeItem(SAVED_PASSWORD_KEY)
+  }
 }
 
 export function removeSavedCredentials() {
@@ -76,10 +107,15 @@ export function removeSavedCredentials() {
   localStorage.removeItem(REMEMBER_PASSWORD_KEY)
 }
 
-// 清除所有本地数据
+// 清除会话（退出登录用）：只擦掉 token + 用户信息，"记住的账号 + 密码 + 勾选状态"保留。
 export function clearAllData() {
   removeToken()
   removeUserInfo()
   removeUserId()
+}
+
+// 清除所有本地数据（包括"记住的账号 + 密码"）—— 给"忘记我"之类的功能预留，目前未使用
+export function clearAllDataAndCredentials() {
+  clearAllData()
   removeSavedCredentials()
 }

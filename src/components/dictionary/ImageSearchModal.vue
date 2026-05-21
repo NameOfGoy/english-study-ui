@@ -43,7 +43,7 @@
         <div v-else class="image-grid">
           <div
             v-for="(img, idx) in images"
-            :key="idx"
+            :key="img.thumb_url || img.url || idx"
             class="image-item"
             :class="{ selected: selectedIndex === idx }"
             @click="selectImage(idx)"
