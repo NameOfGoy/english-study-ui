@@ -1,7 +1,7 @@
 // 学习/复习/抽查/强化卡片中复用的图片编辑能力
 // 处理: 生成/上传/搜索/裁剪/应用图片
 import { ref } from 'vue'
-import { showToast } from 'vant'
+import { showToast, closeToast } from 'vant'
 import {
   generateWordPicture, updateWordPicture,
   generatePhrasePicture, updatePhrasePicture
@@ -36,6 +36,9 @@ export function useCardPictureEditor() {
   let onAppliedCb = null
   const setOnApplied = (fn) => { onAppliedCb = fn }
 
+  // 当前在飞的代理图请求, 切卡/关弹窗时中止
+  let pendingAbort = null
+
   const isWord = () => editingCard.value?.word_type === 1
   const isPhrase = () => editingCard.value?.word_type === 2
 
@@ -62,6 +65,11 @@ export function useCardPictureEditor() {
 
   const closePictureModal = () => {
     showPictureModal.value = false
+    // 中止还在飞的代理图 fetch, 防止旧响应回写到新卡
+    if (pendingAbort) {
+      pendingAbort.abort()
+      pendingAbort = null
+    }
     setTimeout(() => {
       generatedPicture.value = ''
       currentPicture.value = ''
@@ -76,23 +84,29 @@ export function useCardPictureEditor() {
   // ========== 操作: 生成 ==========
   const generatePicture = async () => {
     if (!editingPosId.value) return
+    // 捕获当前 posId; 若过程中用户切到另一张卡, 不应用旧请求的结果
+    const startPosId = editingPosId.value
     generatingPicture.value = true
     try {
       const resp = isWord()
-        ? await generateWordPicture(editingPosId.value)
-        : await generatePhrasePicture(editingPosId.value)
+        ? await generateWordPicture(startPosId)
+        : await generatePhrasePicture(startPosId)
+      // 切卡/关弹窗了, 丢弃结果防止贴到错的卡
+      if (startPosId !== editingPosId.value || !showPictureModal.value) return
       if (resp && resp.link) {
         generatedPicture.value = resp.link
         currentPicture.value = resp.link
         hasPending.value = true
         showToast({ message: '图片生成成功', type: 'success' })
       } else {
-        showToast(resp.message || '生成失败')
+        showToast(resp?.message || '生成失败')
       }
     } catch (e) {
-      showToast('网络错误')
+      if (startPosId === editingPosId.value && showPictureModal.value) {
+        showToast(`生成图片失败: ${e?.message || '请稍后重试'}`)
+      }
     } finally {
-      generatingPicture.value = false
+      if (startPosId === editingPosId.value) generatingPicture.value = false
     }
   }
 
@@ -193,24 +207,49 @@ export function useCardPictureEditor() {
 
   const onImageSearchSelect = async (imageUrl) => {
     showImageSearchModal.value = false
+    const startPosId = editingPosId.value
+    // AbortController: 用户切卡/关弹窗时由 closePictureModal 触发 abort
+    if (pendingAbort) pendingAbort.abort()
+    pendingAbort = new AbortController()
+    const ac = pendingAbort
+    showToast({ message: '正在加载图片...', type: 'loading', duration: 0, forbidClick: true })
     try {
-      showToast({ message: '正在加载图片...', type: 'loading', duration: 0 })
       const proxyUrl = `/api/v1/file-service/proxy-image?url=${encodeURIComponent(imageUrl)}`
       const response = await fetch(proxyUrl, {
-        headers: { 'Authorization': `Bearer ${getToken()}` }
+        headers: { 'Authorization': `Bearer ${getToken()}` },
+        signal: ac.signal,
       })
+      if (!response.ok) {
+        throw new Error(`proxy 返回 ${response.status}`)
+      }
       const blob = await response.blob()
+      // 切卡/关弹窗了, 丢弃响应
+      if (startPosId !== editingPosId.value || !showPictureModal.value) {
+        closeToast()
+        return
+      }
+      if (!blob.type.startsWith('image/')) {
+        throw new Error(`非图片响应: ${blob.type}`)
+      }
       const ext = (blob.type.split('/')[1] || 'png')
       selectedImageFile.value = new File([blob], `search.${ext}`, { type: blob.type })
       const reader = new FileReader()
       reader.onload = (e) => {
+        if (startPosId !== editingPosId.value || !showPictureModal.value) return
         selectedImageSrc.value = e.target.result
         showCropModal.value = true
+        closeToast()
         showToast({ message: '请裁剪图片', type: 'success' })
       }
       reader.readAsDataURL(blob)
     } catch (err) {
-      showToast('图片加载失败')
+      // 被主动 abort 不算错
+      if (err?.name === 'AbortError') return
+      console.error('加载搜索图片失败:', err)
+      closeToast()
+      showToast('图片加载失败，请重试')
+    } finally {
+      if (pendingAbort === ac) pendingAbort = null
     }
   }
 

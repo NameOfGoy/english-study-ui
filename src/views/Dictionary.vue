@@ -348,14 +348,14 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, nextTick, computed } from 'vue'
+import { ref, reactive, onMounted, onBeforeUnmount, nextTick, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { getWordList, getWordDetail, generateWordPicture, updateWordPicture, addWord, getWordStatusList, updateWordStatus, getWordTagList, updateWordTag, getWordPhraseList, getWordPhraseDetail, addWordPhrase, updateWordPhrase, deleteWordPhrase, generatePhrasePicture, updatePhrasePicture, importWord } from '@/api/dictionary'
 import { getTagList } from '@/api/tag'
 import { uploadFile, selectFiles } from '@/api/file'
 import { getUserInfo, getUserId, getToken } from '@/utils/auth'
 import { getResourceUrl } from '@/utils/request'
-import { showToast } from 'vant'
+import { showToast, closeToast } from 'vant'
 
 // Sub-components
 import SearchModal from '@/components/dictionary/SearchModal.vue'
@@ -554,13 +554,6 @@ const getStatusText = (status) => {
 const getStatusClass = (status) => {
   const classMap = { 0: 'unknown', 1: 'study', 2: 'review', 3: 'strengthen', 4: 'finish' }
   return classMap[status] || 'unknown'
-}
-
-const generateRandomTags = () => {
-  const tagsToUse = availableTags.value.length > 0 ? availableTags.value : presetTags.value
-  const tagCount = Math.floor(Math.random() * 3) + 1
-  const shuffled = [...tagsToUse].sort(() => 0.5 - Math.random())
-  return shuffled.slice(0, tagCount)
 }
 
 // ========== 分类方法 ==========
@@ -858,27 +851,9 @@ const loadStatusAndTagsByWordIds = async (wordIds, append = false) => {
     associateStatusAndTagsToWords()
   } catch (err) {
     console.error('加载状态和标签数据失败:', err)
-    generateMockStatusAndTags(wordIds, append)
+    // 失败时显式提示用户, 不再生成假数据 (避免用户对着虚构的状态和标签操作)
+    showToast('加载词条状态/标签失败, 请刷新重试')
   }
-}
-
-const generateMockStatusAndTags = (wordIds, append = false) => {
-  const mockStatusData = wordIds.map(wordId => ({
-    word_id: wordId,
-    status: Math.floor(Math.random() * 5)
-  }))
-  const mockTagData = wordIds.map(wordId => ({
-    word_id: wordId,
-    tags: generateRandomTags()
-  }))
-  if (append) {
-    statusWords.value = [...statusWords.value, ...mockStatusData]
-    tagWords.value = [...tagWords.value, ...mockTagData]
-  } else {
-    statusWords.value = mockStatusData
-    tagWords.value = mockTagData
-  }
-  associateStatusAndTagsToWords()
 }
 
 // ========== 模式切换 ==========
@@ -944,10 +919,26 @@ const initializeWordList = async () => {
   }
 }
 
+// 记录已绑定的 (容器节点, handler) 对，确保切换 tab / 卸载组件时能精确 removeEventListener。
+// 不要在每次进入都重新创建匿名 handler，否则旧 handler 永远卸不掉、造成累积。
+let _scrollHandler = null
+let _scrollHandlerNode = null
+
+const detachScrollListener = () => {
+  if (_scrollHandler && _scrollHandlerNode) {
+    _scrollHandlerNode.removeEventListener('scroll', _scrollHandler)
+  }
+  _scrollHandler = null
+  _scrollHandlerNode = null
+}
+
 const setupScrollListener = () => {
   if (!scrollContainer.value) return
+  // 先卸掉上一次的，避免重复挂载（initializeWordList / handleAfterEnter 都会调用本函数）
+  detachScrollListener()
   const handleScroll = () => {
     const container = scrollContainer.value
+    if (!container) return
     const scrollTop = container.scrollTop
     const scrollHeight = container.scrollHeight
     const clientHeight = container.clientHeight
@@ -960,8 +951,14 @@ const setupScrollListener = () => {
       }
     }
   }
+  _scrollHandler = handleScroll
+  _scrollHandlerNode = scrollContainer.value
   scrollContainer.value.addEventListener('scroll', handleScroll)
 }
+
+onBeforeUnmount(() => {
+  detachScrollListener()
+})
 
 // ========== 选择/返回 ==========
 
@@ -1240,6 +1237,8 @@ const generatePicture = async () => {
         currentPicture.value = response.link
         showActionModal.value = true
         showToast('图片生成成功')
+      } else {
+        showToast('生成失败, 未返回图片链接')
       }
     } else if (selectedPhrase.value) {
       const response = await generatePhrasePicture(selectedPhrase.value.id)
@@ -1248,10 +1247,13 @@ const generatePicture = async () => {
         currentPicture.value = response.link
         showActionModal.value = true
         showToast('图片生成成功')
+      } else {
+        showToast('生成失败, 未返回图片链接')
       }
     }
   } catch (err) {
     console.error('生成图片失败:', err)
+    showToast(`生成图片失败: ${err?.response?.data?.message || err?.message || '请稍后重试'}`)
   } finally {
     generatingPicture.value = false
   }
@@ -1278,6 +1280,7 @@ const applyPicture = async () => {
     }
   } catch (err) {
     console.error('应用图片失败:', err)
+    showToast(`应用图片失败: ${err?.response?.data?.message || err?.message || '请稍后重试'}`)
   } finally {
     applyingPicture.value = false
   }
@@ -1337,27 +1340,32 @@ const openImageSearch = () => {
 
 const onImageSearchSelect = async (imageUrl) => {
   showImageSearchModal.value = false
+  showToast({ message: '正在加载图片...', type: 'loading', duration: 0, forbidClick: true })
   try {
-    // Fetch remote image via backend proxy to avoid CORS
-    showToast({ message: '正在加载图片...', type: 'loading', duration: 0 })
     const proxyUrl = `/api/v1/file-service/proxy-image?url=${encodeURIComponent(imageUrl)}`
     const response = await fetch(proxyUrl, {
       headers: { 'Authorization': `Bearer ${getToken()}` }
     })
+    if (!response.ok) {
+      throw new Error(`proxy 返回 ${response.status}`)
+    }
     const blob = await response.blob()
-    // Create a File object for the crop flow
+    if (!blob.type.startsWith('image/')) {
+      throw new Error(`非图片响应: ${blob.type}`)
+    }
     const ext = blob.type.split('/')[1] || 'png'
     selectedImageFile.value = new File([blob], `search_image.${ext}`, { type: blob.type })
-    // Convert to data URL for cropper
     const reader = new FileReader()
     reader.onload = (e) => {
       selectedImageSrc.value = e.target.result
       showCropModal.value = true
+      closeToast()
       showToast({ message: '请裁剪图片', type: 'success' })
     }
     reader.readAsDataURL(blob)
   } catch (err) {
     console.error('加载搜索图片失败:', err)
+    closeToast()
     showToast('图片加载失败，请重试')
   }
 }
