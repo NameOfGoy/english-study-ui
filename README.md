@@ -10,19 +10,26 @@
 - **词典管理**
   - 单词 / 短语两套独立视图
   - 详情卡：音标、词性、释义、例句、图片
+  - **单词/短语删除**：详情页右上角按钮 + Vant 确认对话框 + 后端级联清学习状态/标签关联
   - 中文反查 stardict 词库 + 批量勾选添加
-  - 标签筛选 + 标签管理
+  - 三种视图（字母 / 状态 / 标签）+ 标签筛选
   - 词条释义在线编辑
   - 图片重新生成 / 上传 / 网络搜索 / 裁剪
-- **四种练习模式**
+  - 文本导入支持 `[tag]` 段标签 / `[---]` 终止符 / 行末 `[t1] [t2]` 多标签（后端规则）
+- **四种练习模式 + 全局标签筛选**
   - 学习 / 复习 / 加强 / 抽查
   - 卡片切换、AI 例句、图片轮播、TTS 发音
   - 学习模式下可即时编辑释义、生成例句
+  - 顶部 `TagFilterBar`：多选 + "全部" 互斥，localStorage 持久化，跨 4 模式生效
+- **标签管理**
+  - 系统标签 + 用户标签分组
+  - 普通用户：系统标签段没有操作按钮（即代表只读）
+  - 超管：系统标签也可编辑/删除；新建时切换 `is_system` 开关
 - **跨用户分享**
   - 生成 5 分钟有效期的分享 token（按词类型 / 标签筛选）
-  - 输入 token 预览并选择性导入
+  - 输入 token 预览 + 三种标签导入模式：**不带 / 仅系统 / 全部**
 - **导入任务历史**：按日期范围筛选，查看异步导入进度
-- **用户系统**：账号密码 + 微信登录、记住密码
+- **用户系统**：账号密码 + 微信登录、记住密码（明文存 localStorage 是已知风险，单用户便利取舍）
 
 ## 技术栈
 
@@ -51,20 +58,24 @@ src/
 ├── components/             # 复用组件
 │   ├── TabBar.vue          # 底部 tab 栏
 │   ├── dictionary/         # 词典相关组件
-│   │   ├── WordDetailView.vue
+│   │   ├── WordDetailView.vue  # 含右上角删除按钮
 │   │   ├── PhraseDetailView.vue
 │   │   ├── SearchAddModal.vue
 │   │   ├── ShareGenerateModal.vue
-│   │   ├── ShareImportModal.vue
+│   │   ├── ShareImportModal.vue # 含 3 种标签导入模式 radio
 │   │   ├── TranslationEditModal.vue
 │   │   ├── TagEditModal.vue
 │   │   └── ImportModal.vue
 │   ├── practice/           # 练习相关组件
+│   │   ├── TagFilterBar.vue   # 全局标签筛选 (多选+全部互斥+localStorage)
 │   │   └── ImageCarousel.vue
 │   └── profile/
 │       └── ImportTaskList.vue
 ├── composables/            # 组合式函数
-│   └── useCardPictureEditor.js
+│   ├── useCardPictureEditor.js
+│   ├── useAudioPlayer.js
+│   ├── usePracticeCards.js
+│   └── ...
 ├── views/                  # 页面
 │   ├── Dashboard.vue       # 首页
 │   ├── Dictionary.vue      # 词典入口
@@ -80,8 +91,11 @@ src/
 │   ├── Profile.vue
 │   ├── Login.vue
 │   └── Register.vue
-├── router/                 # 路由配置（含登录鉴权守卫）
-├── utils/                  # 工具方法（auth、request 等）
+├── router/                 # 路由配置（含 isTokenExpired 主动检查 + requiresAuth 守卫）
+├── utils/
+│   ├── auth.js             # localStorage + setRole/isAdmin (含 JWT claims fallback)
+│   ├── request.js          # Axios 封装 (401 自动跳登录)
+│   └── practiceTagFilter.js # 练习全局标签筛选的 localStorage 读写
 ├── styles/                 # 全局样式
 └── main.js                 # 入口
 ```
@@ -144,11 +158,13 @@ server: {
 推荐用 Docker：
 
 ```bash
-docker build -t english-study-ui:v0.0.42 .
-docker run -d -p 80:80 english-study-ui:v0.0.42
+docker build -t english-study-ui:<ver> .
+docker run -d -p 80:80 english-study-ui:<ver>
 ```
 
 或直接静态托管 `dist/` 目录到任意静态站点服务（Nginx / OSS / Vercel 等）。
+
+> Nginx 配置 (`nginx.conf` 已自带): SPA fallback (`location /`) 显式 `Cache-Control: no-cache`，避免每次部署后浏览器把旧的 `index.html` 缓住、引用到已不存在的 JS 分包，导致路由 push 静默失败。Vite 生成的 JS/CSS 文件名带 content hash，长缓存 (`immutable`) 没问题。
 
 ## 相关仓库
 
