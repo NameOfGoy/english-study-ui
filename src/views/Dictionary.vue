@@ -120,10 +120,10 @@
               </template>
             </van-cell>
 
-            <!-- 标签模式：单词 -->
+            <!-- 标签模式：单词. 直接遍历 wordsByLetter (associate 已把 tags 挂到每条 word 上) -->
             <van-cell
               v-else-if="currentDisplayMode === 'tag' && resourceType === 'word'"
-              v-for="word in (tagWords.length > 0 ? tagWords.filter(w => w.word.charAt(0).toLowerCase() === currentLetter) : wordsByLetter[currentLetter])"
+              v-for="word in (wordsByLetter[currentLetter] || [])"
               :key="word.id"
               :title="word.word"
               is-link
@@ -212,6 +212,7 @@
           @back="goBack"
           @play-audio="playAudio"
           @open-picture="openPictureModal"
+          @delete="confirmDeleteWord"
         />
 
         <!-- 短语详情卡片 -->
@@ -350,12 +351,12 @@
 <script setup>
 import { ref, reactive, onMounted, onBeforeUnmount, nextTick, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { getWordList, getWordDetail, generateWordPicture, updateWordPicture, addWord, getWordStatusList, updateWordStatus, getWordTagList, updateWordTag, getWordPhraseList, getWordPhraseDetail, addWordPhrase, updateWordPhrase, deleteWordPhrase, generatePhrasePicture, updatePhrasePicture, importWord } from '@/api/dictionary'
+import { getWordList, getWordDetail, generateWordPicture, updateWordPicture, addWord, deleteWord, getWordStatusList, updateWordStatus, getWordTagList, updateWordTag, getWordPhraseList, getWordPhraseDetail, addWordPhrase, updateWordPhrase, deleteWordPhrase, generatePhrasePicture, updatePhrasePicture, importWord } from '@/api/dictionary'
 import { getTagList } from '@/api/tag'
 import { uploadFile, selectFiles } from '@/api/file'
 import { getUserInfo, getUserId, getToken } from '@/utils/auth'
 import { getResourceUrl } from '@/utils/request'
-import { showToast, closeToast } from 'vant'
+import { showToast, closeToast, showConfirmDialog } from 'vant'
 
 // Sub-components
 import SearchModal from '@/components/dictionary/SearchModal.vue'
@@ -588,6 +589,28 @@ const categorizePhrasesByLetter = (phrases) => {
 
 // ========== 状态/标签关联 ==========
 
+// 把 getWordTagList 返回的扁平 word_tag 行 ({word_id, tag_id, name, style, ...})
+// 按 word_id 聚合成 [{word_id, tags: [{id, name, style}]}] 形态, 给 associate* 用.
+// 后端的多标签场景下, 同一 word_id 会有多行返回, 聚合后才能正确显示.
+const groupTagsByWordId = (rows) => {
+  const map = new Map()
+  for (const r of rows || []) {
+    const wid = r.word_id ?? r.wordId
+    if (wid == null) continue
+    let item = map.get(wid)
+    if (!item) {
+      item = { word_id: wid, tags: [] }
+      map.set(wid, item)
+    }
+    item.tags.push({
+      id: r.tag_id ?? r.tagId,
+      name: r.name,
+      style: r.style,
+    })
+  }
+  return Array.from(map.values())
+}
+
 const associateStatusAndTagsToWords = () => {
   const statusMap = {}
   statusWords.value.forEach(item => {
@@ -765,7 +788,7 @@ const loadTagData = async () => {
         getTagList()
       ])
       if (wordTagResponse.code === 0) {
-        tagWords.value = wordTagResponse.data || []
+        tagWords.value = groupTagsByWordId(wordTagResponse.data)
         associateStatusAndTagsToWords()
       } else {
         showToast(wordTagResponse.message || '加载单词标签数据失败')
@@ -780,7 +803,7 @@ const loadTagData = async () => {
         getWordTagList(),
         getTagList()
       ])
-      if (wordTagResponse.code === 0) tagWords.value = wordTagResponse.data || []
+      if (wordTagResponse.code === 0) tagWords.value = groupTagsByWordId(wordTagResponse.data)
       else showToast(wordTagResponse.message || '加载单词标签数据失败')
       if (tagListResponse.code === 0) availableTags.value = tagListResponse.data || []
       else showToast(tagListResponse.message || '加载标签列表失败')
@@ -818,7 +841,7 @@ const loadPhraseTagData = async () => {
       const phraseIds = phraseList.value.map(p => p.id)
       const resp = await getWordTagList(phraseIds, 2)
       if (resp.code === 0) {
-        tagPhrases.value = resp.data || []
+        tagPhrases.value = groupTagsByWordId(resp.data)
         associateStatusAndTagsToPhrases()
       }
     }
@@ -841,9 +864,9 @@ const loadStatusAndTagsByWordIds = async (wordIds, append = false) => {
       else statusWords.value = statusData
     }
     if (tagResponse.code === 0) {
-      const tagData = tagResponse.data || []
-      if (append) tagWords.value = [...tagWords.value, ...tagData]
-      else tagWords.value = tagData
+      const grouped = groupTagsByWordId(tagResponse.data)
+      if (append) tagWords.value = [...tagWords.value, ...grouped]
+      else tagWords.value = grouped
     }
     associateStatusAndTagsToWords()
   } catch (err) {
@@ -1820,6 +1843,42 @@ const submitPhrase = async (formData) => {
   } catch (err) {
     console.error('提交短语失败:', err)
     showToast('网络错误，请稍后重试')
+  }
+}
+
+// 单词删除: 通过 WordDetailView 顶部的删除按钮触发, 弹确认对话框防误触
+const confirmDeleteWord = async () => {
+  if (!selectedWord.value || !selectedWord.value.id) return
+  try {
+    await showConfirmDialog({
+      title: '删除单词',
+      message: `确定删除 "${selectedWord.value.word}" 吗? 已积累的学习/复习状态和标签关联会一并清除, 不可恢复.`,
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+      confirmButtonColor: '#ee0a24',
+    })
+  } catch {
+    return // 用户点了取消
+  }
+  try {
+    const wordId = selectedWord.value.id
+    const wordText = selectedWord.value.word
+    const resp = await deleteWord(wordId)
+    if (resp.code === 0) {
+      // 从内存列表里同步移除, 不必重拉
+      const idx = allWords.value.findIndex(w => w.id === wordId)
+      if (idx !== -1) {
+        allWords.value.splice(idx, 1)
+        wordsByLetter.value = categorizeWordsByLetter(allWords.value)
+      }
+      showToast(`已删除 "${wordText}"`)
+      goBack()
+    } else {
+      showToast(resp.message || '删除失败, 请重试')
+    }
+  } catch (err) {
+    console.error('删除单词失败:', err)
+    showToast('网络错误, 请稍后重试')
   }
 }
 

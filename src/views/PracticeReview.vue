@@ -117,6 +117,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import { getReviewWordCardList, finishReview } from '@/api/practise'
+import { getPracticeTagFilter } from '@/utils/practiceTagFilter'
 
 import PracticeHeader from '@/components/practice/PracticeHeader.vue'
 import LoaderOverlay from '@/components/practice/LoaderOverlay.vue'
@@ -148,7 +149,7 @@ const {
   loadApiFn: getReviewWordCardList,
   finishApiFn: finishReview,
   modeLabel: '复习',
-  loadParams: { count: 10, random: true },
+  loadParams: { count: 10, random: true, tag_ids: getPracticeTagFilter() },
   stopAudioFn: stopAudio,
 })
 

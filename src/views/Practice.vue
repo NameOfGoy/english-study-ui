@@ -8,7 +8,10 @@
         <h1 class="page-title">英语练习</h1>
         <p class="page-subtitle">选择学习模式开始练习</p>
       </div>
-      
+
+      <!-- 全局标签筛选 (跨四个模式生效, 持久化在 localStorage) -->
+      <TagFilterBar />
+
       <!-- 内容区域 -->
       <div class="practice-content">
         <div class="mode-grid">
@@ -52,9 +55,11 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
+import TagFilterBar from '@/components/practice/TagFilterBar.vue'
 
 export default {
   name: 'Practice',
+  components: { TagFilterBar },
   setup() {
     const router = useRouter()
     const touchStartX = ref(0)

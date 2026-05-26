@@ -1,8 +1,12 @@
 const TOKEN_KEY = 'english_study_token'
 const USER_INFO_KEY = 'english_study_user_info'
 const USER_ID_KEY = 'english_study_user_id'
+const USER_ROLE_KEY = 'english_study_user_role' // 0=普通 1=超管, 仅 UI 用; 真鉴权在服务端 JWT
 const REMEMBER_PASSWORD_KEY = 'english_study_remember_password'
 const SAVED_ACCOUNT_KEY = 'english_study_saved_account'
+
+export const ROLE_NORMAL = 0
+export const ROLE_ADMIN = 1
 // 注：密码明文写 localStorage 是已知风险（XSS / DevTools / 任何同源脚本都能读），
 // 用户主动保留这个体验（自动登录优先于安全），见 memory: feedback-remember-password
 const SAVED_PASSWORD_KEY = 'english_study_saved_password'
@@ -70,6 +74,45 @@ export function removeUserId() {
   localStorage.removeItem(USER_ID_KEY)
 }
 
+// 角色: 仅前端 UI 显隐用 (隐藏系统标签编辑按钮等), 真正权限校验在服务端 JWT 中
+export function setRole(role) {
+  if (role === undefined || role === null) {
+    localStorage.removeItem(USER_ROLE_KEY)
+    return
+  }
+  localStorage.setItem(USER_ROLE_KEY, String(Number(role) || 0))
+}
+
+export function getRole() {
+  const v = localStorage.getItem(USER_ROLE_KEY)
+  if (v !== null) return Number(v) || 0
+  // localStorage 没存 (老会话遗留, 升级前登录的) → 尝试从 JWT claims 里读 role.
+  // JWT 由后端 HMAC 签过名, 这里只用来取 role 字段做 UI 显隐;
+  // 真正的权限校验仍然在后端用同一份 JWT 二次解码 + role 判断.
+  const token = getToken()
+  if (!token) return 0
+  try {
+    const parts = token.split('.')
+    if (parts.length !== 3) return 0
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')))
+    const role = Number(payload.role)
+    if (Number.isFinite(role)) {
+      // 顺手回填 localStorage, 下次直接命中
+      try { localStorage.setItem(USER_ROLE_KEY, String(role)) } catch (_) {}
+      return role
+    }
+  } catch (_) {}
+  return 0
+}
+
+export function isAdmin() {
+  return getRole() === ROLE_ADMIN
+}
+
+export function removeRole() {
+  localStorage.removeItem(USER_ROLE_KEY)
+}
+
 // 记住密码相关
 export function getRememberPassword() {
   return localStorage.getItem(REMEMBER_PASSWORD_KEY) === 'true'
@@ -107,11 +150,12 @@ export function removeSavedCredentials() {
   localStorage.removeItem(REMEMBER_PASSWORD_KEY)
 }
 
-// 清除会话（退出登录用）：只擦掉 token + 用户信息，"记住的账号 + 密码 + 勾选状态"保留。
+// 清除会话（退出登录用）：只擦掉 token + 用户信息 + role，"记住的账号 + 密码 + 勾选状态"保留。
 export function clearAllData() {
   removeToken()
   removeUserInfo()
   removeUserId()
+  removeRole()
 }
 
 // 清除所有本地数据（包括"记住的账号 + 密码"）—— 给"忘记我"之类的功能预留，目前未使用

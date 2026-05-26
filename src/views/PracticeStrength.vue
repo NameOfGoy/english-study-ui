@@ -98,6 +98,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import { getStrengthWordCardList, finishStrength } from '@/api/practise'
+import { getPracticeTagFilter } from '@/utils/practiceTagFilter'
 
 import PracticeHeader from '@/components/practice/PracticeHeader.vue'
 import LoaderOverlay from '@/components/practice/LoaderOverlay.vue'
@@ -129,7 +130,7 @@ const {
   loadApiFn: getStrengthWordCardList,
   finishApiFn: finishStrength,
   modeLabel: '强化',
-  loadParams: { random: true },
+  loadParams: { random: true, tag_ids: getPracticeTagFilter() },
   stopAudioFn: stopAudio,
 })
 

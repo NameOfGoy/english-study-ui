@@ -136,16 +136,8 @@ export const getResourceUrl = (path) => {
     return path
   }
   
-  // 检测是否为本地调试环境
-  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-  
-  if (isLocalhost) {
-    // 本地环境：去掉/api/v1/file/前缀，直接使用远程服务器地址
-    const cleanPath = path.replace(/^\/api\/v1\/file\//, '')
-    return `http://193.112.111.2:39000/${cleanPath}`
-  }
-  
-  // 生产环境：拼接当前网页地址 + 后端返回的路径（路径已包含/api/v1/file前缀）
+  // 走当前页面 origin，由 nginx 或 Vite proxy 转发到后端 / 文件存储
+  // （以前这里有本地调试分支硬编码了内网 IP+端口，已移除；本地开发请配置 vite.config.js proxy）
   const baseUrl = window.location.origin
   return `${baseUrl}${path}`
 }

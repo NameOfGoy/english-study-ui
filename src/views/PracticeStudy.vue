@@ -132,6 +132,7 @@ import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import { getStudyWordCardList, finishStudy } from '@/api/practise'
 import { updateWordTranslation, updateWordPhrase, getWordPhraseDetail } from '@/api/dictionary'
+import { getPracticeTagFilter } from '@/utils/practiceTagFilter'
 
 import PracticeHeader from '@/components/practice/PracticeHeader.vue'
 import LoaderOverlay from '@/components/practice/LoaderOverlay.vue'
@@ -168,7 +169,8 @@ const {
   loadApiFn: getStudyWordCardList,
   finishApiFn: finishStudy,
   modeLabel: '学习',
-  loadParams: { count: 5, random: true },
+  // setup 期一次性读 localStorage; 用户改了标签后会回到 Practice 再点进, 组件重新 mount
+  loadParams: { count: 5, random: true, tag_ids: getPracticeTagFilter() },
   stopAudioFn: stopAudio,
 })
 

@@ -15,7 +15,11 @@
         <div class="nav-subtitle">Word Details</div>
       </div>
       <div class="nav-right">
-        <!-- 可以添加其他操作按钮 -->
+        <button class="delete-btn" @click="$emit('delete')" title="删除此单词">
+          <svg class="delete-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14zM10 11v6M14 11v6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
       </div>
     </div>
 
@@ -150,7 +154,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['back', 'play-audio', 'open-picture', 'translation-updated'])
+const emit = defineEmits(['back', 'play-audio', 'open-picture', 'translation-updated', 'delete'])
 
 const showTransEdit = ref(false)
 const savingTrans = ref(false)
@@ -309,6 +313,27 @@ const getExchangeName = (exchangeKey) => {
 }
 
 .nav-right { flex: 1; display: flex; justify-content: flex-end; align-items: center; }
+
+.delete-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px; height: 32px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(10px);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.delete-btn:hover {
+  background: rgba(255, 70, 70, 0.85);
+  border-color: rgba(255, 70, 70, 0.9);
+  transform: translateY(-1px);
+}
+.delete-btn:active { transform: translateY(0); }
+.delete-icon { width: 16px; height: 16px; color: white; }
 
 .word-card {
   padding: 24px;

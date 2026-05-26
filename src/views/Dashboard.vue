@@ -5,7 +5,7 @@
       <div class="greeting-row">
         <div class="greeting-text">
           <p class="hello">{{ greeting }}</p>
-          <h1 class="nickname">{{ nickname }}</h1>
+          <h1 class="nickname">{{ nicknameDisplay }}</h1>
         </div>
         <van-image
           v-if="avatar"
@@ -148,7 +148,9 @@ const data = reactive({
 
 const userInfo = ref(getUserInfo() || {})
 
-const nickname = computed(() => userInfo.value.nickname || userInfo.value.username || '同学')
+// 后端返回的字段是 name（不是 nickname / username）— 之前一直读错字段，所以永远显示"同学"
+const nickname = computed(() => userInfo.value.name || userInfo.value.nickname || userInfo.value.username || '')
+const nicknameDisplay = computed(() => nickname.value ? `${nickname.value} 同学` : '同学')
 const nicknameInitial = computed(() => (nickname.value.charAt(0) || 'U').toUpperCase())
 const avatar = computed(() => {
   const a = userInfo.value.avatar

@@ -58,11 +58,14 @@
           </div>
         </div>
 
-        <!-- 同步导入标签开关 -->
+        <!-- 标签导入模式: 不带 / 仅系统 / 全部 -->
         <div v-if="previewData.tags && previewData.tags.length" class="import-tags-toggle">
-          <van-checkbox v-model="importTags" shape="square" icon-size="16px">
-            同步导入标签到我的词库（{{ previewData.tags.length }} 个）
-          </van-checkbox>
+          <div class="import-tags-title">标签导入</div>
+          <van-radio-group v-model="tagImportMode" direction="horizontal">
+            <van-radio :name="0" icon-size="16px">不带</van-radio>
+            <van-radio :name="1" icon-size="16px">仅系统</van-radio>
+            <van-radio :name="2" icon-size="16px">全部</van-radio>
+          </van-radio-group>
         </div>
 
         <!-- 词条列表 -->
@@ -197,7 +200,8 @@ const visible = computed({
 const token = ref('')
 const previewData = ref(null)
 const importResult = ref(null)
-const importTags = ref(false)
+// 标签导入模式: 0 不带 (默认) / 1 仅系统 / 2 全部. 与后端 TagImportMode 约定一致.
+const tagImportMode = ref(0)
 const loading = ref(false)
 const submitting = ref(false)
 
@@ -260,7 +264,7 @@ const onConfirm = async () => {
   try {
     const resp = await importShare({
       token: token.value.trim(),
-      import_tags: importTags.value
+      tag_import_mode: tagImportMode.value
     })
     if (resp.code === 0) {
       importResult.value = resp
@@ -279,7 +283,7 @@ const reset = () => {
   token.value = ''
   previewData.value = null
   importResult.value = null
-  importTags.value = false
+  tagImportMode.value = 0
   loading.value = false
   submitting.value = false
   detailVisible.value = false
@@ -403,6 +407,12 @@ watch(() => props.show, (val) => {
   padding: 10px 20px;
   background: #f7f8fa;
   flex-shrink: 0;
+}
+
+.import-tags-title {
+  font-size: 13px;
+  color: #646566;
+  margin-bottom: 8px;
 }
 
 .items-section {

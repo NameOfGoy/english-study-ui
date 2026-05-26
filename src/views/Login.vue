@@ -73,12 +73,13 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import { login } from '@/api/user'
-import { 
-  setToken, 
-  setUserInfo, 
+import {
+  setToken,
+  setUserInfo,
   setUserId,
-  setRememberPassword, 
-  setSavedAccount, 
+  setRole,
+  setRememberPassword,
+  setSavedAccount,
   setSavedPassword,
   getRememberPassword,
   getSavedAccount,
@@ -97,10 +98,9 @@ export default {
       password: ''
     })
     
-    // 页面加载时恢复保存的登录信息
+    // 页面加载时恢复账号 + 密码（用户主动选择把密码缓存到 localStorage 以换取自动登录）
     onMounted(() => {
-      const savedRemember = getRememberPassword()
-      if (savedRemember) {
+      if (getRememberPassword()) {
         rememberMe.value = true
         formData.account = getSavedAccount()
         formData.password = getSavedPassword()
@@ -123,8 +123,9 @@ export default {
         setToken(response.token)
         setUserInfo(response.data)
         setUserId(response.data.id)
+        setRole(response.data.role) // 角色由响应回包带回, 仅 UI 用
         
-        // 处理记住密码
+        // "记住我"：保存账号 + 密码到 localStorage，方便下次自动填回（用户主动选择，见 memory）
         if (rememberMe.value) {
           setRememberPassword(true)
           setSavedAccount(formData.account)

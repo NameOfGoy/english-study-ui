@@ -12,20 +12,23 @@
 
     <!-- 内容 -->
     <div v-else class="content">
-      <!-- 系统默认标签 -->
+      <!-- 系统标签 (普通用户没有编辑/删除按钮即代表不能改, 不再用锁图标+文字额外说明) -->
       <div v-if="defaultTags.length > 0" class="section">
         <div class="section-header">
           <span class="section-title">系统标签</span>
-          <span class="section-sub">所有用户共享，不可编辑</span>
+          <span class="section-sub">{{ defaultTags.length }} 个</span>
         </div>
         <div class="tag-list">
           <div
             v-for="t in defaultTags"
             :key="t.id"
-            class="tag-card readonly"
+            class="tag-card"
           >
             <span class="tag-pill" :style="{ background: t.style || '#969799' }">{{ t.name }}</span>
-            <van-icon name="lock" class="lock-icon" />
+            <div v-if="admin" class="card-actions">
+              <van-icon name="edit" class="action-icon" @click="openEditForm(t)" />
+              <van-icon name="delete-o" class="action-icon danger" @click="confirmDelete(t)" />
+            </div>
           </div>
         </div>
       </div>
@@ -76,6 +79,11 @@
             maxlength="20"
             clearable
           />
+          <!-- 仅超管新建时显示: 是否系统标签 -->
+          <div v-if="admin && !editingTag" class="system-toggle-row">
+            <span class="color-label">系统标签</span>
+            <van-switch v-model="form.isSystem" size="20px" />
+          </div>
           <div class="color-row">
             <span class="color-label">颜色</span>
             <div class="color-picker">
@@ -123,6 +131,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { showToast } from 'vant'
 import { getTagList, addTag, updateTag, deleteTag } from '@/api/tag'
+import { isAdmin } from '@/utils/auth'
 
 const loading = ref(true)
 const allTags = ref([])
@@ -131,10 +140,13 @@ const editingTag = ref(null)
 const submitting = ref(false)
 const deleteVisible = ref(false)
 const pendingDelete = ref(null)
+// 超管标记; UI 显隐用 (新建系统标签 + 编辑系统标签按钮); 真鉴权在服务端
+const admin = computed(() => isAdmin())
 
 const form = reactive({
   name: '',
-  style: '#ff6b6b'
+  style: '#ff6b6b',
+  isSystem: false // 仅当 admin 且勾选时, 创建为系统标签
 })
 
 const colorPalette = [
@@ -143,25 +155,9 @@ const colorPalette = [
   '#ff9ff3', '#54a0ff', '#07c160', '#969799'
 ]
 
-const userId = computed(() => {
-  // 系统默认标签的 user_id 在前端无法直接判断，靠 API 返回 style 区分？
-  // 实际：我们这里通过 tag 是否在 'defaultNames' 集来兜底
-  // 但更可靠的方式是让 API 返回 user_id；当前 Tag 类型没有
-  // 实际处理：所有从 /v1/tag/list 返回的，先尝试编辑/删除，后端会以 user_id 校验，删默认会自动失败
-  return 0
-})
-
-// 区分系统标签 vs 用户标签：依赖后端把默认标签放在前面（user_id=0 先来）
-// 实际上 API 返回不区分，前端按名字 hardcode 一个默认列表是脆的
-// 改用：先获取列表，发删除请求会返回成功（但实际不会删 user_id=0 因为后端有过滤）
-// 这里前端用名称启发式区分（不完美但满足展示）
-const DEFAULT_TAG_NAMES = new Set([
-  '重点词汇', '高频词', '易错词', '考试词汇',
-  '日常用词', '专业词汇', '口语词汇', '写作词汇'
-])
-
-const defaultTags = computed(() => allTags.value.filter(t => DEFAULT_TAG_NAMES.has(t.name)))
-const userTags = computed(() => allTags.value.filter(t => !DEFAULT_TAG_NAMES.has(t.name)))
+// 后端 /api/v1/tag/list 现在每条 tag 都带 is_system 字段, 不再用启发式名称匹配
+const defaultTags = computed(() => allTags.value.filter(t => t.is_system))
+const userTags = computed(() => allTags.value.filter(t => !t.is_system))
 
 const loadTags = async () => {
   loading.value = true
@@ -183,6 +179,7 @@ const openCreateForm = () => {
   editingTag.value = null
   form.name = ''
   form.style = '#ff6b6b'
+  form.isSystem = false
   formVisible.value = true
 }
 
@@ -190,6 +187,7 @@ const openEditForm = (tag) => {
   editingTag.value = tag
   form.name = tag.name
   form.style = tag.style || '#1989fa'
+  form.isSystem = !!tag.is_system // 编辑时锁住归属, 服务端也不会让你跨归属修改
   formVisible.value = true
 }
 
@@ -211,7 +209,7 @@ const submitForm = async () => {
         style: form.style
       })
     } else {
-      resp = await addTag({ name, style: form.style })
+      resp = await addTag({ name, style: form.style, is_system: !!(admin.value && form.isSystem) })
     }
     if (resp.code === 0) {
       showToast({ message: editingTag.value ? '已更新' : '已创建', type: 'success' })
@@ -325,11 +323,6 @@ onMounted(loadTags)
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
 }
 
-.tag-card.readonly {
-  background: #fafafa;
-  opacity: 0.85;
-}
-
 .tag-pill {
   display: inline-block;
   padding: 5px 12px;
@@ -337,11 +330,6 @@ onMounted(loadTags)
   color: #fff;
   font-size: 13px;
   font-weight: 500;
-}
-
-.lock-icon {
-  color: #c8c9cc;
-  font-size: 16px;
 }
 
 .card-actions {
@@ -411,6 +399,17 @@ onMounted(loadTags)
   align-items: center;
   padding: 12px 16px;
   background: #f7f8fa;
+  border-radius: 8px;
+  margin: 12px 0;
+}
+
+.system-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: #fffbe6;
+  border: 1px dashed #ffb800;
   border-radius: 8px;
   margin: 12px 0;
 }

@@ -114,6 +114,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import { getSpotWordCardList, finishSpot } from '@/api/practise'
+import { getPracticeTagFilter } from '@/utils/practiceTagFilter'
 
 import PracticeHeader from '@/components/practice/PracticeHeader.vue'
 import LoaderOverlay from '@/components/practice/LoaderOverlay.vue'
@@ -145,7 +146,7 @@ const {
   loadApiFn: getSpotWordCardList,
   finishApiFn: finishSpot,
   modeLabel: '抽查',
-  loadParams: { count: 10, random: true },
+  loadParams: { count: 10, random: true, tag_ids: getPracticeTagFilter() },
   stopAudioFn: stopAudio,
 })
 
