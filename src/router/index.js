@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { getToken, isTokenExpired, clearAllData } from '@/utils/auth'
+import { getToken, isTokenExpired, clearAllData, isAdmin } from '@/utils/auth'
 import { showToast } from 'vant'
 import Dictionary from '@/views/Dictionary.vue'
 
@@ -158,6 +158,17 @@ const routes = [
       requiresAuth: true,
       showTabbar: false
     }
+  },
+  {
+    path: '/admin/chat',
+    name: 'AdminChat',
+    component: () => import('@/views/AdminChat.vue'),
+    meta: {
+      title: 'AI 辅助',
+      requiresAuth: true,
+      requiresAdmin: true, // 路由守卫读这个; 真鉴权在后端 (relay-token + ws 双校验)
+      showTabbar: false
+    }
   }
 ]
 
@@ -194,12 +205,19 @@ router.beforeEach((to, from, next) => {
     }
   }
   
+  // admin 路由守卫: 非 admin 直接踢回 profile
+  if (to.meta.requiresAdmin && !isAdmin()) {
+    showToast({ message: '此功能仅管理员可用', type: 'fail' })
+    next('/profile')
+    return
+  }
+
   // 如果已登录用户访问登录或注册页面，重定向到首页
   if ((to.name === 'Login' || to.name === 'Register') && getToken()) {
     next('/dashboard')
     return
   }
-  
+
   next()
 })
 

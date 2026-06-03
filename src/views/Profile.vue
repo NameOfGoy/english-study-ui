@@ -68,6 +68,17 @@
         />
       </van-cell-group>
 
+      <!-- AI 辅助 - 仅 admin 可见 (前端隐藏 + 后端二次校验) -->
+      <van-cell-group v-if="adminMode" style="margin-top: 12px;">
+        <van-cell
+          title="AI 辅助"
+          label="跟 AI 说一下要改什么, 自动改+部署 (新窗口打开)"
+          icon="chat-o"
+          is-link
+          @click="openAdminChat"
+        />
+      </van-cell-group>
+
       <!-- 导入任务 -->
       <ImportTaskList />
 
@@ -136,7 +147,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast, showConfirmDialog } from 'vant'
 import { getUserInfo, updateUserInfo, updateUserAvatar } from '@/api/user'
-import { getUserInfo as getLocalUserInfo, setUserInfo, clearAllData } from '@/utils/auth'
+import { getUserInfo as getLocalUserInfo, setUserInfo, clearAllData, isAdmin } from '@/utils/auth'
 import { getResourceUrl } from '@/utils/request'
 import ImportTaskList from '@/components/profile/ImportTaskList.vue'
 
@@ -145,6 +156,8 @@ export default {
   components: { ImportTaskList },
   setup() {
     const router = useRouter()
+    // 是否显示 AI 辅助入口 (admin only); 计算只在 mount 时算一次, role 不会运行时变
+    const adminMode = isAdmin()
     const userInfo = reactive({
       id: '',
       name: '',
@@ -369,11 +382,36 @@ export default {
       isSwipeGesture.value = false
     }
     
+    // 打开 AI 辅助: 在新标签页打开, 当前"我的"页**保持不动** (改完代码去别页看, 回来对话历史还在).
+    //
+    // 关键点:
+    // 1) 不要用 'noopener' 特性 —— 按规范带 noopener 时 window.open 永远返回 null, 会让"被拦截"判断误判,
+    //    进而触发降级 router.push 把当前页也带进 /admin/chat (出现"两个页面都进了聊天 + 抢 ws"的 bug).
+    //    同源自家页面没有 reverse tabnabbing 风险, 不需要 noopener.
+    // 2) 具名 target 'es-admin-chat' (而非 _blank): 已经开着 chat 标签时再点 → 聚焦复用同一个,
+    //    不会开出第二个 → 避免多标签抢转发器那唯一的 ws 单连接.
+    // 3) 微信内置浏览器开不了真新标签 → 只能同标签跳 (localStorage 持久化兜底, 历史不丢).
+    const openAdminChat = () => {
+      const isWeChat = /micromessenger/i.test(navigator.userAgent || '')
+      if (isWeChat) {
+        router.push('/admin/chat')
+        return
+      }
+      const href = router.resolve('/admin/chat').href
+      const win = window.open(href, 'es-admin-chat')
+      if (!win) {
+        // 真被弹窗拦截 (极少见, 因为这是点击触发) → 只提示, 绝不跳当前页
+        showToast({ message: '请允许浏览器弹窗后再点一次', type: 'fail' })
+      }
+    }
+
     onMounted(() => {
       loadUserInfo()
     })
-    
+
     return {
+      adminMode,
+      openAdminChat,
       userInfo,
       showEditPopup,
       showAvatarPopup,

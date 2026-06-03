@@ -12,6 +12,8 @@
   "dependencies": {
     "@vant/touch-emulator": "^1.4.0",
     "axios": "^1.4.0",
+    "dompurify": "^3.4.7",
+    "markdown-it": "^14.2.0",
     "vant": "^4.6.2",
     "vue": "^3.3.4",
     "vue-cropper": "^1.0.3",
