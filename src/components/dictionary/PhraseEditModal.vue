@@ -170,7 +170,7 @@ const handleSubmit = () => {
   overflow: hidden;
 
   .modal-header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--es-grad);
     padding: 20px; display: flex; justify-content: space-between; align-items: center;
     margin-bottom: 0; border-bottom: none;
 
@@ -222,8 +222,8 @@ const handleSubmit = () => {
       &.cancel-btn { background: #6c757d; color: white; &:hover { background: #5a6268; } }
 
       &.submit-btn {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;
-        &:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4); }
+        background: var(--es-grad); color: white;
+        &:hover { transform: translateY(-1px); box-shadow: 0 10px 22px -8px rgba(25, 137, 250, 0.45); }
       }
     }
   }

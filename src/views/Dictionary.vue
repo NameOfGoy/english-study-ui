@@ -2,10 +2,12 @@
   <div class="dictionary-page" @touchstart="handleTouchStart" @touchend="handleTouchEnd">
     <!-- 头部 -->
     <div class="dictionary-header">
+      <div class="header-glow" aria-hidden="true"></div>
       <div class="header-content">
         <div class="header-text">
-          <h1 class="page-title">英语词典</h1>
-          <p class="page-subtitle">学习及查找词语</p>
+          <span class="page-eyebrow">English&nbsp;Study · Dictionary</span>
+          <h1 class="page-title">英语<span class="accent">词典</span></h1>
+          <p class="page-subtitle"><span class="rule" aria-hidden="true"></span>学习及查找词语</p>
         </div>
         <!-- 显示模式切换栏 -->
         <div class="display-mode-switcher">
@@ -47,6 +49,24 @@
       <transition :name="transitionName" mode="out-in" @after-enter="handleAfterEnter">
         <!-- 资源列表（按字母分类） -->
         <div v-if="!selectedWord && !selectedPhrase" key="resource-list" class="alphabetical-word-list" ref="scrollContainer">
+
+        <!-- 标签模式: 多标签筛选(同时拥有所选全部标签的词语) -->
+        <div v-if="currentDisplayMode === 'tag'" class="tag-filter-panel">
+          <div class="tfp-header" @click="showTagFilter = !showTagFilter">
+            <span class="tfp-title">
+              <van-icon name="filter-o" /> 按标签筛选
+              <span class="tfp-summary">{{ selectedFilterTags.length ? `已选 ${selectedFilterTags.length} 个 · ${filteredCount} 条` : '全部' }}</span>
+            </span>
+            <span class="tfp-right">
+              <span v-if="selectedFilterTags.length" class="tfp-clear" @click.stop="selectedFilterTags = []">清空</span>
+              <van-icon :name="showTagFilter ? 'arrow-up' : 'arrow-down'" />
+            </span>
+          </div>
+          <div v-show="showTagFilter" class="tfp-body">
+            <div class="tfp-tip">勾选多个标签 = 筛选「同时拥有」这些标签的词语</div>
+            <ArticleTagPicker v-model="selectedFilterTags" :multiple="true" />
+          </div>
+        </div>
 
         <div v-for="currentLetter in lettersToLoop" :key="currentLetter" class="letter-group">
           <!-- 该字母下的单词列表 -->
@@ -123,7 +143,7 @@
             <!-- 标签模式：单词. 直接遍历 wordsByLetter (associate 已把 tags 挂到每条 word 上) -->
             <van-cell
               v-else-if="currentDisplayMode === 'tag' && resourceType === 'word'"
-              v-for="word in (wordsByLetter[currentLetter] || [])"
+              v-for="word in (displayWordsByLetter[currentLetter] || [])"
               :key="word.id"
               :title="word.word"
               is-link
@@ -148,7 +168,7 @@
             <!-- 标签模式：短语 -->
             <van-cell
               v-else-if="currentDisplayMode === 'tag' && resourceType === 'phrase'"
-              v-for="item in (phrasesByLetter[currentLetter] || [])"
+              v-for="item in (displayPhrasesByLetter[currentLetter] || [])"
               :key="item.id"
               :title="item.word"
               is-link
@@ -172,6 +192,17 @@
 
           </div>
         </div>
+
+        <!-- 标签筛选加载中 -->
+        <div v-if="currentDisplayMode === 'tag' && filterLoading" class="global-loading">
+          <van-loading size="20px" vertical>筛选中...</van-loading>
+        </div>
+
+        <!-- 标签筛选无结果 -->
+        <van-empty
+          v-if="currentDisplayMode === 'tag' && selectedFilterTags.length > 0 && !filterLoading && filteredCount === 0"
+          description="没有同时拥有这些标签的词语"
+        />
 
         <!-- 加载更多状态 -->
         <div v-if="loadingMore && currentDisplayMode === 'word'" class="global-loading">
@@ -290,6 +321,20 @@
       <van-icon name="search" size="22" />
     </div>
 
+    <!-- A-Z 首字母快速跳转条 (列表视图显示, 点击跳到对应字母) -->
+    <div
+      v-if="!selectedWord && !selectedPhrase && lettersToLoop.length > 0"
+      class="az-index-bar"
+    >
+      <span
+        v-for="letter in lettersToLoop"
+        :key="letter"
+        class="az-index-item"
+        :class="{ active: currentActiveLetter === letter }"
+        @click="scrollToLetter(letter)"
+      >{{ letter === '#' ? '#' : letter.toUpperCase() }}</span>
+    </div>
+
     <!-- 操作菜单 -->
     <van-action-sheet
       v-model:show="showActionSheet"
@@ -349,9 +394,9 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onBeforeUnmount, nextTick, computed } from 'vue'
+import { ref, reactive, onMounted, onBeforeUnmount, nextTick, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { getWordList, getWordDetail, generateWordPicture, updateWordPicture, addWord, deleteWord, getWordStatusList, updateWordStatus, getWordTagList, updateWordTag, getWordPhraseList, getWordPhraseDetail, addWordPhrase, updateWordPhrase, deleteWordPhrase, generatePhrasePicture, updatePhrasePicture, importWord } from '@/api/dictionary'
+import { getWordList, getWordDetail, generateWordPicture, updateWordPicture, addWord, deleteWord, getWordStatusList, updateWordStatus, getWordTagList, updateWordTag, getWordPhraseList, getWordPhraseDetail, addWordPhrase, updateWordPhrase, deleteWordPhrase, generatePhrasePicture, updatePhrasePicture, importWord, listWordsByTags } from '@/api/dictionary'
 import { getTagList } from '@/api/tag'
 import { uploadFile, selectFiles } from '@/api/file'
 import { getUserInfo, getUserId, getToken } from '@/utils/auth'
@@ -373,6 +418,7 @@ import AddPhraseModal from '@/components/dictionary/AddPhraseModal.vue'
 import StatusEditModal from '@/components/dictionary/StatusEditModal.vue'
 import TagEditModal from '@/components/dictionary/TagEditModal.vue'
 import PhraseEditModal from '@/components/dictionary/PhraseEditModal.vue'
+import ArticleTagPicker from '@/components/article/ArticleTagPicker.vue'
 
 const props = defineProps({
   defaultType: {
@@ -394,6 +440,7 @@ const selectedPhrase = ref(null)
 const scrollContainer = ref(null)
 const lastScrollTop = ref(0)
 const transitionName = ref('page-slide')
+const currentActiveLetter = ref('')
 
 // 显示模式切换相关
 const resourceType = ref(props.defaultType || 'word')
@@ -447,6 +494,10 @@ const availableTags = ref([])
 const loadingStatusData = ref(false)
 const loadingTagData = ref(false)
 
+// 标签模式下的多标签筛选(AND 语义: 只显示同时拥有全部所选标签的词语)
+const selectedFilterTags = ref([])
+const showTagFilter = ref(false)
+
 // 短语数据
 const phraseList = ref([])
 const phrasesByLetter = ref({})
@@ -455,9 +506,46 @@ const hasMorePhrases = ref(true)
 const phraseOffset = ref(0)
 const loadingMorePhrases = ref(false)
 
-// 按模式选择字母循环
+// 标签筛选(AND): 服务端实时查询"同时拥有全部所选标签"的词语, 避免前端快照过期/关联错乱
+const filterResults = ref([]) // 后端返回的匹配词条 [{id, word, tags}]
+const filterLoading = ref(false)
+const tagFilterActive = computed(
+  () => currentDisplayMode.value === 'tag' && selectedFilterTags.value.length > 0
+)
+
+const fetchTagFilter = async () => {
+  if (!tagFilterActive.value) {
+    filterResults.value = []
+    return
+  }
+  filterLoading.value = true
+  try {
+    const resp = await listWordsByTags({
+      tag_ids: selectedFilterTags.value,
+      word_type: resourceType.value === 'phrase' ? 2 : 1
+    })
+    filterResults.value = (resp && resp.data) || []
+  } catch (e) {
+    filterResults.value = []
+  } finally {
+    filterLoading.value = false
+  }
+}
+watch([selectedFilterTags, resourceType, currentDisplayMode], fetchTagFilter, { deep: true })
+
+const displayWordsByLetter = computed(() => {
+  if (tagFilterActive.value && resourceType.value === 'word') return categorizeWordsByLetter(filterResults.value)
+  return wordsByLetter.value
+})
+const displayPhrasesByLetter = computed(() => {
+  if (tagFilterActive.value && resourceType.value === 'phrase') return categorizePhrasesByLetter(filterResults.value)
+  return phrasesByLetter.value
+})
+const filteredCount = computed(() => (tagFilterActive.value ? filterResults.value.length : 0))
+
+// 按模式选择字母循环 (标签筛选生效时基于过滤后的分组, 空字母自动隐藏)
 const lettersToLoop = computed(() => {
-  const map = resourceType.value === 'phrase' ? phrasesByLetter.value : wordsByLetter.value
+  const map = resourceType.value === 'phrase' ? displayPhrasesByLetter.value : displayWordsByLetter.value
   return Object.keys(map)
     .filter(letter => map[letter] && map[letter].length > 0)
     .sort((a, b) => {
@@ -681,23 +769,18 @@ const getFilteredPhrasesForStatus = (letter) => {
 // ========== 数据加载 ==========
 
 const loadWords = async (append = false) => {
-  if (loadingMore.value || !hasMoreWords.value) return
+  if (loadingMore.value) return
   try {
     loadingMore.value = true
-    const params = { offset: currentOffset.value, limit: PAGE_SIZE, orderby: 'word' }
+    // 单词列表只含 id+word, 数据量极小(几百词约 20KB), 一次性全量加载。
+    // 这样所有首字母分组都在内存里, 右侧字母条才能跳到任意字母(含尚未滚动到的)。
+    const params = { offset: 0, limit: 100000, orderby: 'word' }
     const response = await getWordList(params)
     const data = response.data || []
-    const total = response.total_count || 0
-
-    if (append) {
-      allWords.value = [...allWords.value, ...data]
-      currentOffset.value += data.length
-    } else {
-      allWords.value = data
-      currentOffset.value = data.length
-    }
+    allWords.value = data
+    currentOffset.value = data.length
     wordsByLetter.value = categorizeWordsByLetter(allWords.value)
-    hasMoreWords.value = allWords.value.length < total
+    hasMoreWords.value = false
   } catch (err) {
     console.error('加载单词失败:', err)
     showToast('加载单词失败，请稍后重试')
@@ -754,8 +837,8 @@ const loadStatusData = async () => {
   try {
     loadingStatusData.value = true
     if (allWords.value.length > 0) {
-      const wordIds = allWords.value.map(word => word.id)
-      const response = await getWordStatusList(wordIds)
+      // 全量单词已加载, 这里按 word_type 一次性取该用户全部状态, 避免把几百个 word_id 拼进 URL(过长会被网关 414)
+      const response = await getWordStatusList(undefined, 1)
       if (response.code === 0) {
         statusWords.value = response.data || []
         associateStatusAndTagsToWords()
@@ -782,9 +865,9 @@ const loadTagData = async () => {
   try {
     loadingTagData.value = true
     if (allWords.value.length > 0) {
-      const wordIds = allWords.value.map(word => word.id)
+      // 同上: 一次性取该用户全部单词标签, 不按 id 拼 URL
       const [wordTagResponse, tagListResponse] = await Promise.all([
-        getWordTagList(wordIds),
+        getWordTagList(undefined, 1),
         getTagList()
       ])
       if (wordTagResponse.code === 0) {
@@ -953,6 +1036,25 @@ const detachScrollListener = () => {
   _scrollHandlerNode = null
 }
 
+const updateActiveLetter = () => {
+  const container = scrollContainer.value
+  if (!container) return
+  const scrollTop = container.scrollTop
+  const letters = lettersToLoop.value
+  let active = letters[0] || ''
+  for (const letter of letters) {
+    const el = document.getElementById(`letter-${letter}`)
+    if (!el) continue
+    const group = el.closest('.letter-group') || el
+    if (group.offsetTop <= scrollTop + 60) {
+      active = letter
+    } else {
+      break
+    }
+  }
+  currentActiveLetter.value = active
+}
+
 const setupScrollListener = () => {
   if (!scrollContainer.value) return
   // 先卸掉上一次的，避免重复挂载（initializeWordList / handleAfterEnter 都会调用本函数）
@@ -971,10 +1073,12 @@ const setupScrollListener = () => {
         loadMorePhrases()
       }
     }
+    updateActiveLetter()
   }
   _scrollHandler = handleScroll
   _scrollHandlerNode = scrollContainer.value
   scrollContainer.value.addEventListener('scroll', handleScroll)
+  updateActiveLetter()
 }
 
 onBeforeUnmount(() => {
@@ -1082,6 +1186,17 @@ const selectPhrase = async (phraseId) => {
     console.error('获取短语详情失败:', err)
     showToast('网络错误，请稍后重试')
   }
+}
+
+// 点击左侧字母条, 平滑滚动到对应首字母分组的第一个词条
+const scrollToLetter = (letter) => {
+  const container = scrollContainer.value
+  if (!container) return
+  // 用 getElementById 兼容 '#' 这种非法 CSS 选择器字符
+  const anchor = document.getElementById(`letter-${letter}`)
+  if (!anchor) return
+  const group = anchor.closest('.letter-group') || anchor
+  container.scrollTo({ top: group.offsetTop, behavior: 'smooth' })
 }
 
 const goBack = () => {
@@ -1926,61 +2041,97 @@ onMounted(async () => {
 </script>
 
 <style lang="scss" scoped>
+/* ============================================================
+   EDITORIAL — 词典 main surface. Cool-blue brand, hairline rows,
+   soft white cards, oversized title, pill chips. Mirrors login.
+   ============================================================ */
 .dictionary-page {
   min-height: 100vh;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  /* transparent — let the global cool wash (#app) show through */
+  background: transparent;
   position: relative;
-
-  &::before {
-    content: '';
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: radial-gradient(circle at 20% 80%, rgba(102, 126, 234, 0.1) 0%, transparent 50%),
-                radial-gradient(circle at 80% 20%, rgba(118, 75, 162, 0.1) 0%, transparent 50%);
-    pointer-events: none;
-    z-index: 0;
-  }
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+               'Hiragino Sans GB', 'Microsoft YaHei', Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
+/* ---- brand header (cool gradient, editorial lockup) ---- */
 .dictionary-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 40px 20px 30px;
-  text-align: center;
-  color: white;
+  background: linear-gradient(118deg, var(--es-grad-a) 0%, var(--es-primary) 56%, var(--es-teal) 130%);
+  padding: 38px 22px 30px;
+  color: #fff;
   position: relative;
   overflow: hidden;
+  border-bottom-left-radius: 26px;
+  border-bottom-right-radius: 26px;
+  box-shadow: 0 14px 34px -18px rgba(25, 137, 250, .55);
 
-  &::before {
-    content: '';
+  /* one soft drifting glow — the single restrained accent gesture */
+  .header-glow {
     position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: linear-gradient(45deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+    width: 240px; height: 240px;
+    top: -110px; right: -70px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, .34), rgba(255, 255, 255, 0) 66%);
     pointer-events: none;
+    animation: dictGlow 17s var(--es-ease) infinite alternate;
+  }
+
+  .page-eyebrow {
+    display: inline-block;
+    font-size: 11px;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: rgba(255, 255, 255, .82);
+    margin-bottom: 10px;
+    position: relative; z-index: 1;
   }
 
   .page-title {
-    font-size: 28px; font-weight: 800; margin-bottom: 8px;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    letter-spacing: 1px; position: relative; z-index: 1;
+    font-size: 32px; font-weight: 800; margin-bottom: 10px;
+    letter-spacing: -.01em; line-height: 1.05;
+    position: relative; z-index: 1;
+
+    .accent {
+      color: #fff;
+      position: relative;
+      &::after {
+        content: '';
+        position: absolute;
+        left: 0; right: 0; bottom: 2px;
+        height: 8px; border-radius: 4px;
+        background: rgba(255, 255, 255, .26);
+        z-index: -1;
+      }
+    }
   }
 
   .page-subtitle {
-    font-size: 14px; opacity: 0.9; letter-spacing: 0.5px;
+    display: flex; align-items: center; gap: 12px;
+    font-size: 14px; letter-spacing: .02em;
+    color: rgba(255, 255, 255, .9);
     position: relative; z-index: 1;
+
+    .rule {
+      width: 30px; height: 2px; border-radius: 2px;
+      background: rgba(255, 255, 255, .85);
+      flex: 0 0 auto;
+    }
   }
+}
+@keyframes dictGlow {
+  from { transform: translate(0, 0) scale(1); }
+  to   { transform: translate(-22px, 26px) scale(1.12); }
 }
 
 .dictionary-content {
-  padding: 32px 20px 40px;
+  padding: 18px 14px 40px;
   max-width: 800px;
   margin: 0 auto;
   position: relative;
   z-index: 1;
-  overflow: hidden;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 20px;
-  padding: 20px;
-  margin: 10px;
+  background: transparent;
 }
 
 .alphabetical-word-list {
@@ -1996,18 +2147,25 @@ onMounted(async () => {
   -webkit-backface-visibility: hidden;
 }
 
-.letter-group { margin-bottom: 20px; position: relative; }
+/* 左侧 A-Z 字母条是 fixed 浮层; 当内容区贴近视口左缘时(窄屏/浏览器窗口未占满),
+   给词条列表让出字母条的宽度, 避免字母标签和词条左缘被遮住。
+   宽屏下居中内容左侧留白已足够容纳字母条, 无需缩进。 */
+@media (max-width: 880px) {
+  .alphabetical-word-list { padding-left: 38px; }
+}
+
+.letter-group { margin-bottom: 22px; position: relative; }
 
 /* 添加单词浮动按钮 */
 .add-word-fab {
   position: fixed; bottom: 80px; right: 20px;
   width: 56px; height: 56px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(118deg, var(--es-grad-a) 0%, var(--es-primary) 56%, var(--es-teal) 130%);
   border-radius: 50%; display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
-  cursor: pointer; transition: all 0.3s ease; z-index: 1000;
+  box-shadow: 0 12px 26px -8px rgba(25, 137, 250, .55), inset 0 1px 0 rgba(255, 255, 255, .35);
+  cursor: pointer; transition: transform .25s var(--es-ease), box-shadow .25s var(--es-ease); z-index: 1000;
 
-  &:hover { transform: scale(1.1); box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6); }
+  &:hover { transform: translateY(-2px) scale(1.04); box-shadow: 0 16px 32px -8px rgba(25, 137, 250, .62); }
   &:active { transform: scale(0.95); }
   .van-icon { color: white; font-weight: bold; }
 }
@@ -2015,83 +2173,97 @@ onMounted(async () => {
 .search-fab {
   position: fixed; bottom: 140px; right: 20px;
   width: 56px; height: 56px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--es-surface);
   border-radius: 50%; display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
-  cursor: pointer; transition: all 0.3s ease; z-index: 1000; color: #fff;
+  box-shadow: var(--es-shadow-card); border: 1px solid var(--es-hair);
+  cursor: pointer; transition: transform .25s var(--es-ease), box-shadow .25s var(--es-ease); z-index: 1000;
+  color: var(--es-primary);
 }
-.search-fab:hover { transform: scale(1.1); box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6); }
+.search-fab:hover { transform: translateY(-2px) scale(1.04); box-shadow: 0 16px 30px -10px rgba(20, 30, 50, .25); }
 .search-fab:active { transform: scale(0.95); }
 
-/* 字母标签样式 - 通讯录风格 */
+/* 字母分组标签 — editorial eyebrow */
 .letter-tag {
-  position: absolute; top: 8px; left: 8px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white; width: 36px; height: 36px; border-radius: 12px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 16px; font-weight: 800; z-index: 10;
-  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3);
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(10px);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  position: absolute; top: 14px; left: 16px;
+  background: transparent;
+  color: var(--es-primary);
+  width: auto; height: auto; border-radius: 0;
+  display: flex; align-items: center; justify-content: flex-start;
+  font-size: 13px; font-weight: 800; z-index: 10;
+  letter-spacing: .16em; text-transform: uppercase;
+  box-shadow: none; border: 0; text-shadow: none;
+  padding-left: 2px;
+
+  &::before {
+    content: '';
+    width: 14px; height: 2px; border-radius: 2px; margin-right: 8px;
+    background: linear-gradient(90deg, var(--es-primary), var(--es-grad-b));
+  }
 }
 
+/* 字母分组卡片 — soft white surface */
 .letter-words {
-  background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
-  border-radius: 16px; overflow: hidden;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-  margin-bottom: 16px; padding-top: 12px; position: relative;
-  border: 1px solid rgba(102, 126, 234, 0.1);
-
-  &::before {
-    content: '';
-    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-    background: linear-gradient(45deg, rgba(102, 126, 234, 0.02) 0%, rgba(118, 75, 162, 0.02) 100%);
-    pointer-events: none;
-  }
+  background: var(--es-surface);
+  border-radius: var(--es-r-card); overflow: hidden;
+  box-shadow: var(--es-shadow-card);
+  margin-bottom: 16px; padding-top: 42px; position: relative;
+  border: 1px solid var(--es-hair-soft);
 }
 
+/* 词条行 — hairline-separated row */
 .word-item {
-  border-bottom: 1px solid rgba(102, 126, 234, 0.08);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  margin-left: 48px; position: relative; overflow: hidden;
-
-  &::before {
-    content: '';
-    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-    background: linear-gradient(90deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
-    transform: translateX(-100%); transition: transform 0.3s ease;
-  }
+  transition: background-color .2s var(--es-ease);
+  margin-left: 0; position: relative;
+  background: transparent;
 }
-
+:deep(.word-item.van-cell::after) {
+  border-color: var(--es-hair);
+  left: 16px; right: 16px;
+}
 .word-item:hover {
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.08) 100%);
-  transform: translateX(4px);
-  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.15);
-  border-left: 3px solid rgba(102, 126, 234, 0.3);
-  &::before { transform: translateX(0); }
+  background: var(--es-hair-soft);
 }
+.word-item:active { background: rgba(25, 137, 250, .07); }
+.word-item:last-child :deep(.van-cell::after) { display: none; }
 
-.word-item:last-child { border-bottom: none; }
+:deep(.word-item .van-cell__title) {
+  font-weight: 600;
+  color: var(--es-ink);
+}
+:deep(.word-item .van-cell__right-icon) {
+  color: var(--es-ink-3);
+}
 
 .global-loading {
-  text-align: center; padding: 32px;
-  background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
-  border-radius: 20px;
-  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.1);
-  margin-top: 24px;
-  border: 1px solid rgba(102, 126, 234, 0.1);
+  text-align: center; padding: 28px;
+  background: var(--es-surface);
+  border-radius: var(--es-r-card);
+  box-shadow: var(--es-shadow-soft);
+  margin-top: 20px;
+  border: 1px solid var(--es-hair-soft);
 }
 
-.van-loading {
-  display: flex; justify-content: center; align-items: center;
-  min-height: 200px; background: white; border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+.load-complete :deep(.van-divider) {
+  color: var(--es-ink-3);
+  border-color: var(--es-hair);
+  font-size: 12px;
+  letter-spacing: .04em;
 }
 
-.van-empty {
-  background: white; border-radius: 16px; padding: 40px 20px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+:deep(.van-loading) {
+  display: flex; justify-content: center; align-items: center; flex-direction: column;
+  min-height: 200px; background: var(--es-surface); border-radius: var(--es-r-card);
+  box-shadow: var(--es-shadow-card); color: var(--es-ink-2);
+  .van-loading__spinner { color: var(--es-primary); }
+}
+.global-loading :deep(.van-loading) {
+  min-height: 0; background: transparent; box-shadow: none;
+}
+
+:deep(.van-empty) {
+  background: var(--es-surface); border-radius: var(--es-r-card); padding: 40px 20px;
+  box-shadow: var(--es-shadow-card);
+  .van-empty__description { color: var(--es-ink-2); }
 }
 
 
@@ -2120,93 +2292,103 @@ onMounted(async () => {
 .page-slide-leave-active .word-detail { box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05); }
 
 /* 显示模式切换栏样式 */
-.header-content { display: flex; justify-content: space-between; align-items: center; width: 100%; }
-.header-text { flex: 1; }
+.header-content { display: flex; justify-content: space-between; align-items: flex-end; width: 100%; position: relative; z-index: 1; }
+.header-text { flex: 1; min-width: 0; }
 
 .display-mode-switcher {
   display: flex;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 20px; padding: 4px;
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 999px; padding: 4px;
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  flex: 0 0 auto;
 
   .mode-option {
-    padding: 8px 16px; border-radius: 16px; font-size: 14px;
-    font-weight: 600; cursor: pointer; transition: all 0.3s ease;
-    color: rgba(255, 255, 255, 0.8); white-space: nowrap;
+    padding: 7px 14px; border-radius: 999px; font-size: 13px;
+    font-weight: 600; cursor: pointer; transition: all 0.25s var(--es-ease);
+    color: rgba(255, 255, 255, 0.85); white-space: nowrap;
 
     &.active {
-      background: rgba(255, 255, 255, 0.25); color: white;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      background: #fff; color: var(--es-primary);
+      box-shadow: 0 4px 10px -3px rgba(0, 0, 0, 0.22);
     }
-    &:hover:not(.active) { background: rgba(255, 255, 255, 0.1); color: white; }
+    &:hover:not(.active) { background: rgba(255, 255, 255, 0.12); color: white; }
   }
 }
 
 /* 状态和标签模式的单词项样式 */
 .word-item {
   &.clickable {
-    cursor: pointer; transition: background-color 0.2s ease;
-    &:hover { background-color: #f5f5f5; }
-    &:active { background-color: #e8e8e8; }
+    cursor: pointer; transition: background-color 0.2s var(--es-ease);
+    &:hover { background-color: var(--es-hair-soft); }
+    &:active { background-color: rgba(25, 137, 250, .07); }
   }
 
-  .van-cell__title {
-    color: #1f2937; font-weight: 600; text-shadow: none;
+  :deep(.van-cell__title) {
+    color: var(--es-ink); font-weight: 600; text-shadow: none;
     -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
   }
 
   &.status-mode, &.tag-mode {
     .word-main { display: flex; justify-content: space-between; align-items: center; }
-    .word-text { font-weight: 600; color: #2c3e50; }
+    .word-text { font-weight: 600; color: var(--es-ink); }
 
+    /* status as tinted pill (soft bg + colored text + matching dot) */
     .status-indicator {
-      display: flex; align-items: center; gap: 8px;
-      padding: 6px 12px; border-radius: 20px; transition: all 0.3s ease;
-      white-space: nowrap; margin-right: 22px; transform: translateX(-6px);
+      display: inline-flex; align-items: center; gap: 7px;
+      height: 28px; padding: 0 12px; border-radius: 999px;
+      transition: all 0.25s var(--es-ease);
+      white-space: nowrap; margin-right: 6px;
 
       .status-dot {
-        width: 10px; height: 10px; border-radius: 50%;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); transition: all 0.3s ease;
+        width: 8px; height: 8px; border-radius: 50%;
+        transition: all 0.25s var(--es-ease);
       }
-      .status-text { font-size: 13px; font-weight: 600; letter-spacing: 0.3px; transition: all 0.3s ease; }
+      .status-text { font-size: 12px; font-weight: 700; letter-spacing: 0.2px; transition: all 0.25s var(--es-ease); }
 
       &.unknown {
-        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border: 1px solid #dee2e6;
-        .status-dot { background: linear-gradient(135deg, #6c757d 0%, #495057 100%); }
-        .status-text { color: #6c757d; }
+        background: rgba(154, 163, 175, .14);
+        .status-dot { background: #9AA3AF; }
+        .status-text { color: #6B7280; }
       }
       &.study {
-        background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); border: 1px solid #90caf9;
-        .status-dot { background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%); box-shadow: 0 2px 8px rgba(33, 150, 243, 0.3); }
-        .status-text { color: #1565c0; }
+        background: rgba(61, 165, 244, .14);
+        .status-dot { background: #3DA5F4; }
+        .status-text { color: #1577cf; }
       }
       &.review {
-        background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%); border: 1px solid #ffcc02;
-        .status-dot { background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%); box-shadow: 0 2px 8px rgba(255, 152, 0, 0.3); }
-        .status-text { color: #e65100; }
+        background: rgba(108, 123, 240, .14);
+        .status-dot { background: #6C7BF0; }
+        .status-text { color: #5563d6; }
       }
       &.strengthen {
-        background: linear-gradient(135deg, #fbe9e7 0%, #ffccbc 100%); border: 1px solid #ff8a65;
-        .status-dot { background: linear-gradient(135deg, #ff5722 0%, #d84315 100%); box-shadow: 0 2px 8px rgba(255, 87, 34, 0.3); }
-        .status-text { color: #bf360c; }
+        background: rgba(22, 192, 203, .14);
+        .status-dot { background: #16C0CB; }
+        .status-text { color: #0f97a0; }
       }
       &.finish {
-        background: linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%); border: 1px solid #81c784;
-        .status-dot { background: linear-gradient(135deg, #4caf50 0%, #388e3c 100%); box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3); }
-        .status-text { color: #2e7d32; }
+        background: rgba(7, 193, 96, .14);
+        .status-dot { background: #07c160; }
+        .status-text { color: #069b4d; }
       }
-      &:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); .status-dot { transform: scale(1.1); } }
+      &:hover { transform: translateY(-1px); .status-dot { transform: scale(1.15); } }
     }
 
+    /* tags as soft brand pills */
     .word-tags {
-      display: flex; flex-wrap: wrap; gap: 6px;
-      .tag-item { padding: 4px 8px; border-radius: 12px; font-size: 12px; color: white; font-weight: 500; white-space: nowrap; }
+      display: flex; flex-wrap: wrap; gap: 6px; padding-top: 2px;
+      .tag-item {
+        display: inline-flex; align-items: center;
+        padding: 3px 10px; border-radius: 999px; font-size: 12px;
+        color: #fff; font-weight: 600; white-space: nowrap;
+        box-shadow: 0 2px 6px -2px rgba(20, 30, 50, .25);
+      }
+      .no-tags { font-size: 12px; color: var(--es-ink-3); }
     }
 
     :deep(.van-cell__value) {
       display: flex; justify-content: flex-end; align-items: center;
-      overflow: visible; padding-right: 18px;
+      overflow: visible; padding-right: 6px;
     }
     .word-item.status-mode { overflow: visible; padding-right: 8px; }
     :deep(.van-cell) { overflow: visible; }
@@ -2221,20 +2403,22 @@ onMounted(async () => {
 }
 
 .bookmark-option {
-  min-width: 72px; padding: 10px 14px;
-  border-top-left-radius: 12px; border-bottom-left-radius: 12px;
+  min-width: 64px; padding: 9px 14px;
+  border-top-left-radius: 14px; border-bottom-left-radius: 14px;
   border-top-right-radius: 0; border-bottom-right-radius: 0;
-  background: rgba(0, 0, 0, 0.28); color: #fff;
+  background: rgba(255, 255, 255, 0.9); color: var(--es-ink-2);
   font-weight: 600; letter-spacing: 0.3px; text-align: center;
-  cursor: pointer; backdrop-filter: blur(6px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
-  transition: all 0.25s ease; opacity: 0.85; user-select: none;
+  cursor: pointer; backdrop-filter: blur(8px);
+  border: 1px solid var(--es-hair);
+  box-shadow: 0 8px 20px -10px rgba(20, 30, 50, .25);
+  transition: all 0.25s var(--es-ease); opacity: 0.92; user-select: none;
 
-  &:hover { opacity: 0.95; transform: translateX(-2px); }
+  &:hover { opacity: 1; transform: translateX(-2px); }
 
   &.active {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    box-shadow: 0 10px 26px rgba(102, 126, 234, 0.35); opacity: 1;
+    background: linear-gradient(118deg, var(--es-grad-a) 0%, var(--es-primary) 56%, var(--es-teal) 130%);
+    border-color: transparent; color: #fff;
+    box-shadow: 0 12px 26px -10px rgba(25, 137, 250, .55); opacity: 1;
   }
 }
 
@@ -2242,9 +2426,132 @@ onMounted(async () => {
   .bookmark-option { min-width: 64px; padding: 8px 12px; font-size: 12px; }
 }
 
-.search-modal { background: #fff; border-radius: 16px; }
-.search-modal .modal-header { display:flex; justify-content:space-between; align-items:center; padding:16px; border-bottom:1px solid #eee; }
-.search-modal .close-btn { font-size:20px; color:#999; }
+/* A-Z 首字母快速跳转条 (左侧, 通讯录风格) */
+.az-index-bar {
+  position: fixed;
+  left: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  z-index: 1000;
+  padding: 10px 5px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid var(--es-hair);
+  border-radius: 999px;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 10px 26px -14px rgba(20, 30, 50, .3);
+  max-height: 86vh;
+  overflow-y: auto;
+  user-select: none;
+}
+
+.az-index-item {
+  width: 22px;
+  line-height: 1.5;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--es-ink-3);
+  cursor: pointer;
+  text-shadow: none;
+  border-radius: 999px;
+  transition: transform 0.15s var(--es-ease), color 0.15s var(--es-ease), background-color 0.15s var(--es-ease);
+}
+
+.az-index-item:active {
+  color: var(--es-primary);
+  transform: scale(1.35);
+}
+
+.az-index-item.active {
+  color: #fff;
+  transform: scale(1.1);
+  background: linear-gradient(135deg, var(--es-grad-a), var(--es-primary));
+}
+
+@media (max-width: 375px) {
+  .az-index-item { font-size: 13px; width: 22px; }
+}
+
+.search-modal { background: var(--es-surface); border-radius: var(--es-r-card); }
+.search-modal .modal-header { display:flex; justify-content:space-between; align-items:center; padding:16px; border-bottom:1px solid var(--es-hair); }
+.search-modal .close-btn { font-size:20px; color: var(--es-ink-3); }
 .search-modal .modal-content { padding:16px; }
 .search-results { margin-top:12px; }
+
+/* 标签模式·多标签筛选面板 — soft white card */
+.tag-filter-panel {
+  margin: 4px 4px 12px;
+  background: var(--es-surface);
+  border-radius: var(--es-r-card);
+  border: 1px solid var(--es-hair-soft);
+  box-shadow: var(--es-shadow-soft);
+  overflow: hidden;
+}
+.tag-filter-panel .tfp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--es-ink);
+  cursor: pointer;
+}
+.tag-filter-panel .tfp-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--es-ink);
+  .van-icon { color: var(--es-primary); }
+}
+.tag-filter-panel .tfp-summary {
+  color: var(--es-ink-3);
+  font-size: 12px;
+  font-weight: 500;
+  margin-left: 4px;
+}
+.tag-filter-panel .tfp-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--es-ink-3);
+}
+.tag-filter-panel .tfp-clear {
+  color: var(--es-primary);
+  font-size: 13px;
+  font-weight: 600;
+}
+.tag-filter-panel .tfp-body {
+  padding: 4px 16px 14px;
+  border-top: 1px solid var(--es-hair-soft);
+}
+.tag-filter-panel .tfp-tip {
+  font-size: 12px;
+  color: var(--es-ink-3);
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+
+/* ---- shared van overrides for this page ---- */
+:deep(.van-action-sheet) {
+  border-top-left-radius: 22px;
+  border-top-right-radius: 22px;
+}
+:deep(.van-action-sheet__item) {
+  font-weight: 600;
+  color: var(--es-ink);
+}
+:deep(.van-action-sheet__cancel) {
+  color: var(--es-ink-2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dictionary-header .header-glow { animation: none !important; }
+  .add-word-fab, .search-fab, .mode-option, .bookmark-option,
+  .az-index-item, .word-item, .status-indicator { transition: none !important; }
+}
 </style>

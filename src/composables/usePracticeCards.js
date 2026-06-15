@@ -1,4 +1,4 @@
-import { ref, nextTick } from 'vue'
+import { ref, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { showToast } from 'vant'
 
 /**
@@ -40,6 +40,25 @@ export function usePracticeCards({ loadApiFn, finishApiFn, modeLabel, loadParams
       error.value = '加载失败，请重试'
     }
   }
+
+  // 微信 iOS WebView 切回聊天再回前台后, in-flight fetch 可能 hang 在 paused 态,
+  // finishing 卡 true 导致 finishCard 入口守卫拦截后续点击, 表现为按钮无响应.
+  // visibilitychange→visible 时强制重置.
+  const onVisibility = () => {
+    if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+      finishing.value = false
+    }
+  }
+  onMounted(() => {
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', onVisibility)
+    }
+  })
+  onBeforeUnmount(() => {
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
+  })
 
   const finishCard = async (operation) => {
     // 入口守卫: 双击仍可能在 disabled 状态生效前进来, 必须再 check 一次

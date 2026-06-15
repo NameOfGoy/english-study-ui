@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 
 /**
  * Touch gesture control for distinguishing vertical scroll from horizontal swipe.
@@ -49,6 +49,25 @@ export function useSwipeTouchControl() {
 
   const handleCardTouchEnd = () => resetTouch()
   const handleCardTouchCancel = () => resetTouch()
+
+  // 修复微信 iOS WebView 切回聊天再回前台后, touchend/touchcancel 不再 fire,
+  // 导致 disableSwipePointer/imageSwipeTouchable 停留在垂直滚动期间的"受限态",
+  // 表现为某些区域 pointer-events 卡住. 回前台时强制 reset.
+  const onVisibility = () => {
+    if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+      resetTouch()
+    }
+  }
+  onMounted(() => {
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', onVisibility)
+    }
+  })
+  onBeforeUnmount(() => {
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
+  })
 
   return {
     imageSwipeTouchable,

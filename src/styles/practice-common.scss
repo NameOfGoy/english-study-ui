@@ -1,14 +1,14 @@
 // ============================================
-// Practice Mode - Unified Design System
+// Practice Mode - Unified Design System (editorial)
 // ============================================
 // Each mode sets CSS custom properties:
-//   --mode-color       主色
+//   --mode-color        主色
 //   --mode-color-light  浅色背景
 //   --mode-gradient     页面背景渐变
 
 .practice-page {
   min-height: 100vh;
-  background: var(--mode-gradient);
+  background: var(--mode-gradient, var(--es-wash));
 }
 
 .error-wrap {
@@ -23,12 +23,12 @@
   overscroll-behavior-y: contain;
 }
 
-// White card wrapper
+// White card wrapper — editorial soft shadow
 .word-card {
-  background: #ffffff;
-  border-radius: 16px;
-  padding: 20px 16px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+  background: var(--es-surface, #ffffff);
+  border-radius: var(--es-r-card, 18px);
+  padding: 22px 18px;
+  box-shadow: var(--es-shadow-card, 0 18px 40px -22px rgba(20, 30, 50, 0.18));
   margin-bottom: 16px;
 }
 
@@ -41,14 +41,15 @@
   }
 }
 
+// editorial eyebrow label
 .section-label {
-  font-size: 13px;
-  color: #999;
-  margin-bottom: 8px;
+  font-size: 11px;
+  color: var(--es-ink-3, #9AA3AF);
+  margin-bottom: 10px;
   text-align: center;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.18em;
 }
 
 // Word display
@@ -58,23 +59,23 @@
 }
 
 .word {
-  font-size: 28px;
+  font-size: 30px;
   font-weight: 800;
-  color: var(--mode-color, #323233);
+  color: var(--mode-color, #1F2937);
   letter-spacing: 0.5px;
 }
 
 // Translation
 .translation-section {
   background: var(--mode-color-light, #f7f8fa);
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 14px 16px;
 }
 
 .translation {
   white-space: pre-line;
   font-size: 16px;
-  color: #323233;
+  color: var(--es-ink, #1F2937);
   line-height: 1.7;
 }
 
@@ -87,41 +88,42 @@
 }
 
 .action-btn {
-  height: 48px !important;
+  height: 50px !important;
   font-size: 16px !important;
   font-weight: 600 !important;
   border-radius: 14px !important;
   border: none !important;
+  letter-spacing: 0.02em !important;
   transition: all 0.2s ease !important;
-  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 10px 22px -12px rgba(20, 30, 50, 0.28) !important;
 
   &:active {
     transform: translateY(1px) !important;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1) !important;
+    box-shadow: 0 4px 10px -6px rgba(20, 30, 50, 0.3) !important;
   }
 
   &.primary {
     background: var(--mode-color) !important;
     color: #fff !important;
-    box-shadow: 0 3px 12px color-mix(in srgb, var(--mode-color) 35%, transparent) !important;
+    box-shadow: 0 12px 24px -10px color-mix(in srgb, var(--mode-color) 55%, transparent) !important;
   }
 
   &.secondary {
     background: #fff !important;
     color: var(--mode-color) !important;
-    border: 1.5px solid var(--mode-color) !important;
+    border: 1.5px solid color-mix(in srgb, var(--mode-color) 40%, #fff) !important;
     box-shadow: none !important;
   }
 
   &.success {
     background: linear-gradient(135deg, #07c160 0%, #06a854 100%) !important;
     color: #fff !important;
-    box-shadow: 0 3px 12px rgba(7, 193, 96, 0.3) !important;
+    box-shadow: 0 12px 24px -10px rgba(7, 193, 96, 0.4) !important;
   }
 
   &.danger {
     background: linear-gradient(135deg, #ee0a24 0%, #d50000 100%) !important;
     color: #fff !important;
-    box-shadow: 0 3px 12px rgba(238, 10, 36, 0.25) !important;
+    box-shadow: 0 12px 24px -10px rgba(238, 10, 36, 0.35) !important;
   }
 }

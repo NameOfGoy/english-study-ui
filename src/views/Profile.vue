@@ -1,83 +1,101 @@
 <template>
-  <div class="profile-page" 
-       @touchstart="handleTouchStart" 
-       @touchmove="handleTouchMove" 
+  <div class="profile-page"
+       @touchstart="handleTouchStart"
+       @touchmove="handleTouchMove"
        @touchend="handleTouchEnd">
     <!-- 头部信息 -->
-    <div class="profile-header">
-      <div class="user-avatar">
-        <van-image
-          :src="avatarUrl"
-          round
-          width="80"
-          height="80"
-          fit="cover"
-          @click="showAvatarPicker"
-        >
-          <template #error>
-            <div class="avatar-placeholder">
-              <van-icon name="user-o" size="40" />
-            </div>
-          </template>
-        </van-image>
-        <div class="camera-icon" @click="showAvatarPicker">
-          <van-icon name="photograph" size="16" />
+    <header class="profile-header">
+      <span class="es-eyebrow head-eyebrow">My&nbsp;Account</span>
+      <div class="head-row">
+        <div class="user-avatar">
+          <van-image
+            :src="avatarUrl"
+            round
+            width="80"
+            height="80"
+            fit="cover"
+            @click="showAvatarPicker"
+          >
+            <template #error>
+              <div class="avatar-placeholder">
+                <van-icon name="user-o" size="40" />
+              </div>
+            </template>
+          </van-image>
+          <div class="camera-icon" @click="showAvatarPicker">
+            <van-icon name="photograph" size="16" />
+          </div>
+        </div>
+        <div class="user-basic-info">
+          <h2 class="username">{{ userInfo.name || '未设置' }}</h2>
+          <p class="user-id">ID&nbsp;{{ userInfo.id }}</p>
         </div>
       </div>
-      <div class="user-basic-info">
-        <h2 class="username">{{ userInfo.name || '未设置' }}</h2>
-        <p class="user-id">ID: {{ userInfo.id }}</p>
-      </div>
-    </div>
-    
+    </header>
+
     <!-- 用户信息列表 -->
     <div class="profile-content">
-      <van-cell-group>
-        <van-cell
-          title="用户名"
-          :value="userInfo.name || '未设置'"
-          is-link
-          @click="editUserField('name', '用户名', userInfo.name)"
-        />
-        <van-cell
-          title="账号"
-          :value="userInfo.account || '未设置'"
-          :clickable="false"
-        />
-        <van-cell
-          title="手机号"
-          :value="userInfo.phone || '未设置'"
-          is-link
-          @click="editUserField('phone', '手机号', userInfo.phone)"
-        />
-        <van-cell
-          title="邮箱"
-          :value="userInfo.email || '未设置'"
-          is-link
-          @click="editUserField('email', '邮箱', userInfo.email)"
-        />
-      </van-cell-group>
-      
+      <section class="es-section">
+        <p class="es-eyebrow section-label">账户资料</p>
+        <div class="es-card list-card">
+          <van-cell-group :border="false">
+            <van-cell
+              title="用户名"
+              :value="userInfo.name || '未设置'"
+              is-link
+              @click="editUserField('name', '用户名', userInfo.name)"
+            />
+            <van-cell
+              title="账号"
+              :value="userInfo.account || '未设置'"
+              :clickable="false"
+            />
+            <van-cell
+              title="手机号"
+              :value="userInfo.phone || '未设置'"
+              is-link
+              @click="editUserField('phone', '手机号', userInfo.phone)"
+            />
+            <van-cell
+              title="邮箱"
+              :value="userInfo.email || '未设置'"
+              is-link
+              @click="editUserField('email', '邮箱', userInfo.email)"
+            />
+          </van-cell-group>
+        </div>
+      </section>
+
       <!-- 我的标签 -->
-      <van-cell-group style="margin-top: 12px;">
-        <van-cell
-          title="我的标签"
-          icon="label-o"
-          is-link
-          @click="$router.push('/profile/tags')"
-        />
-      </van-cell-group>
+      <section class="es-section">
+        <p class="es-eyebrow section-label">收藏与内容</p>
+        <div class="es-card list-card">
+          <van-cell-group :border="false">
+            <van-cell
+              title="我的标签"
+              icon="label-o"
+              is-link
+              @click="$router.push('/profile/tags')"
+            />
+          </van-cell-group>
+        </div>
+      </section>
 
       <!-- AI 辅助 - 仅 admin 可见 (前端隐藏 + 后端二次校验) -->
-      <van-cell-group v-if="adminMode" style="margin-top: 12px;">
-        <van-cell
-          title="AI 辅助"
-          label="跟 AI 说一下要改什么, 自动改+部署 (新窗口打开)"
-          icon="chat-o"
-          is-link
-          @click="openAdminChat"
-        />
-      </van-cell-group>
+      <section v-if="adminMode" class="es-section">
+        <p class="es-eyebrow section-label">管理</p>
+        <div class="es-card list-card">
+          <van-cell-group :border="false">
+            <van-cell
+              title="AI 辅助"
+              label="跟 AI 说一下要改什么, 自动改+部署 (新窗口打开)"
+              icon="chat-o"
+              is-link
+              @click="openAdminChat"
+            />
+          </van-cell-group>
+        </div>
+      </section>
 
       <!-- 导入任务 -->
       <ImportTaskList />
@@ -94,7 +112,7 @@
         </van-button>
       </div>
     </div>
-    
+
     <!-- 编辑弹窗 -->
     <van-popup
       v-model:show="showEditPopup"
@@ -437,6 +455,13 @@ export default {
 </script>
 
 <style lang="scss" scoped>
+/* ============================================================
+   EDITORIAL — 我的 / Profile
+   Sits on the global cool wash (App.vue paints --es-wash).
+   No opaque page bg; content lives on soft white es-cards
+   and hairline-separated van-cell rows.
+   ============================================================ */
+
 /* 滑动动画 */
 .slide-enter-active {
   transition: all 0.35s cubic-bezier(0.23, 1, 0.32, 1);
@@ -467,150 +492,353 @@ export default {
 
 .profile-page {
   min-height: 100vh;
-  background-color: #f8f9fa;
-  padding-bottom: 80px;
+  /* let the global --es-wash show through */
+  background: transparent;
   position: relative;
   overflow-x: hidden;
+  color: var(--es-ink);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+               'Hiragino Sans GB', 'Microsoft YaHei', Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
+/* ---- editorial header on the wash ---- */
 .profile-header {
-  background: linear-gradient(135deg, #1989fa 0%, #1976d2 100%);
-  padding: 40px 20px 30px;
-  text-align: center;
-  color: white;
   position: relative;
-  
-  .user-avatar {
-    position: relative;
-    display: inline-block;
-    margin-bottom: 16px;
-    
-    .avatar-placeholder {
-      width: 80px;
-      height: 80px;
-      background-color: #f0f0f0;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #ccc;
-    }
-    
-    .camera-icon {
-      position: absolute;
-      bottom: 0;
-      right: 0;
-      width: 28px;
-      height: 28px;
-      background-color: #1989fa;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: white;
-      border: 2px solid white;
-      cursor: pointer;
-    }
-  }
-  
-  .user-basic-info {
-    .username {
-      font-size: 20px;
-      font-weight: bold;
-      margin-bottom: 4px;
-    }
-    
-    .user-id {
-      font-size: 14px;
-      opacity: 0.8;
-    }
-  }
+  padding: clamp(28px, 7vh, 48px) 24px 22px;
+  text-align: left;
+  color: var(--es-ink);
 }
 
-.profile-content {
-  padding: 20px;
-  
-  :deep(.van-cell-group) {
-    margin-bottom: 20px;
-    border-radius: 8px;
+.head-eyebrow {
+  display: block;
+  margin-bottom: 18px;
+  color: var(--es-ink-3);
+}
+
+.head-row {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.profile-header .user-avatar {
+  position: relative;
+  flex: 0 0 auto;
+  display: inline-block;
+  line-height: 0;
+
+  /* the avatar image gets a soft ring + lift */
+  :deep(.van-image) {
+    border-radius: 50%;
+    box-shadow:
+      0 10px 26px -12px rgba(20, 30, 50, .35),
+      0 0 0 4px var(--es-surface);
     overflow: hidden;
   }
-  
-  :deep(.van-cell) {
-    padding: 16px;
-    
-    .van-cell__title {
-      font-weight: 500;
+
+  .avatar-placeholder {
+    width: 80px;
+    height: 80px;
+    background: var(--es-hair-soft);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--es-ink-3);
+  }
+
+  .camera-icon {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 28px;
+    height: 28px;
+    background: linear-gradient(135deg, var(--es-grad-a), var(--es-primary));
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    border: 2.5px solid var(--es-surface);
+    box-shadow: 0 4px 12px rgba(25, 137, 250, .42);
+    cursor: pointer;
+    transition: transform .2s var(--es-ease);
+
+    &:active {
+      transform: scale(.9);
     }
   }
 }
 
-.profile-actions {
-  margin-top: 40px;
-  
-  :deep(.van-button) {
-    height: 48px;
-    border-radius: 24px;
-    font-size: 16px;
-    font-weight: 500;
+.profile-header .user-basic-info {
+  min-width: 0;
+  flex: 1 1 auto;
+
+  .username {
+    font-size: clamp(26px, 8vw, 34px);
+    font-weight: 800;
+    letter-spacing: -.02em;
+    line-height: 1.08;
+    color: var(--es-ink);
+    margin-bottom: 8px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
+
+  .user-id {
+    display: inline-flex;
+    align-items: center;
+    height: 24px;
+    padding: 0 11px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .06em;
+    color: var(--es-primary);
+    background: rgba(25, 137, 250, .10);
+  }
+}
+
+/* ---- settings sections ---- */
+.profile-content {
+  padding: 6px 20px 0;
+}
+
+.es-section {
+  margin-bottom: 22px;
+}
+
+.section-label {
+  margin: 0 4px 10px;
+  color: var(--es-ink-3);
+}
+
+.list-card {
+  padding: 4px 16px;
+}
+
+/* refined hairline list rows */
+.list-card :deep(.van-cell-group) {
+  background: transparent;
+}
+.list-card :deep(.van-cell-group--inset) {
+  margin: 0;
+}
+
+.list-card :deep(.van-cell) {
+  position: relative;
+  padding: 16px 0;
+  background: transparent;
+  line-height: 1.4;
+  align-items: center;
+
+  /* kill Vant's own borders; we draw our own hairline */
+  &::after {
+    display: none;
+  }
+
+  & + .van-cell {
+    border-top: 1px solid var(--es-hair);
+  }
+
+  .van-cell__title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--es-ink);
+  }
+
+  .van-cell__label {
+    font-size: 12px;
+    color: var(--es-ink-3);
+    margin-top: 4px;
+    line-height: 1.5;
+  }
+
+  .van-cell__value {
+    font-size: 15px;
+    color: var(--es-ink-2);
+  }
+
+  /* leading icon → soft tinted chip */
+  .van-cell__left-icon {
+    width: 34px;
+    height: 34px;
+    margin-right: 12px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    color: var(--es-primary);
+    background: rgba(25, 137, 250, .10);
+  }
+
+  /* refined chevron */
+  .van-cell__right-icon {
+    color: var(--es-ink-3);
+    font-size: 16px;
+  }
+}
+
+/* pressed feedback on tappable rows */
+.list-card :deep(.van-cell--clickable:active) {
+  background: var(--es-hair-soft);
+  border-radius: 10px;
+}
+
+/* ---- logout / destructive action ---- */
+.profile-actions {
+  margin-top: 32px;
+
+  :deep(.van-button--danger) {
+    height: 50px;
+    border-radius: var(--es-r-btn);
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    color: #E1483B;
+    background: rgba(225, 72, 59, .08);
+    border: 1px solid rgba(225, 72, 59, .22);
+    box-shadow: none;
+    transition: background .2s var(--es-ease), transform .15s var(--es-ease);
+
+    &:active {
+      background: rgba(225, 72, 59, .14);
+      transform: translateY(1px);
+    }
+  }
+}
+
+/* ============================================================
+   Popups — editorial bottom sheets
+   ============================================================ */
+:deep(.van-popup) {
+  border-radius: 20px 20px 0 0;
 }
 
 .edit-popup {
   height: 100%;
   display: flex;
   flex-direction: column;
-  
+  background: var(--es-surface);
+
   .popup-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 16px 20px;
-    border-bottom: 1px solid #ebedf0;
-    
+    padding: 18px 20px 16px;
+    border-bottom: 1px solid var(--es-hair);
+
     h3 {
       font-size: 16px;
-      font-weight: 500;
+      font-weight: 700;
+      letter-spacing: -.01em;
+      color: var(--es-ink);
       margin: 0;
     }
+
+    :deep(.van-button) {
+      border-radius: 10px;
+      font-weight: 600;
+    }
+
+    :deep(.van-button--default) {
+      color: var(--es-ink-2);
+      border-color: var(--es-hair);
+      background: var(--es-surface);
+    }
+
+    :deep(.van-button--primary) {
+      background: linear-gradient(118deg, var(--es-grad-a), var(--es-primary) 70%, var(--es-teal));
+      border: 0;
+      box-shadow: 0 6px 16px -6px rgba(25, 137, 250, .5);
+    }
   }
-  
+
   .popup-content {
     flex: 1;
-    padding: 20px;
-    
+    padding: 22px 20px;
+
     :deep(.van-field) {
-      background-color: #f8f9fa;
-      border-radius: 8px;
+      background: var(--es-hair-soft);
+      border-radius: 12px;
+      padding: 14px 14px;
+
+      &::after {
+        display: none;
+      }
+
+      .van-field__control {
+        font-size: 16px;
+        color: var(--es-ink);
+      }
     }
   }
 }
 
 .avatar-popup {
-  padding: 20px;
-  
+  padding: 22px 20px calc(22px + env(safe-area-inset-bottom, 0px));
+  background: var(--es-surface);
+
   .popup-header {
     text-align: center;
-    margin-bottom: 20px;
-    
+    margin-bottom: 22px;
+
     h3 {
       font-size: 18px;
-      font-weight: 500;
+      font-weight: 700;
+      letter-spacing: -.01em;
+      color: var(--es-ink);
       margin: 0;
     }
   }
-  
+
   .avatar-options {
     :deep(.van-button) {
       margin-bottom: 12px;
-      height: 48px;
-      border-radius: 24px;
+      height: 50px;
+      border-radius: var(--es-r-btn);
       font-size: 16px;
-      
+      font-weight: 700;
+
       &:last-child {
         margin-bottom: 0;
       }
     }
+
+    :deep(.van-button--primary) {
+      letter-spacing: .04em;
+      background: linear-gradient(118deg, var(--es-grad-a) 0%, var(--es-primary) 56%, var(--es-teal) 130%);
+      background-size: 180% 180%;
+      border: 0;
+      box-shadow:
+        0 10px 24px rgba(25, 137, 250, .32),
+        inset 0 1px 0 rgba(255, 255, 255, .36);
+      animation: esGradShift 9s ease-in-out infinite;
+    }
+
+    :deep(.van-button--default) {
+      color: var(--es-ink-2);
+      border: 1px solid var(--es-hair);
+      background: var(--es-surface);
+    }
+  }
+}
+
+@keyframes esGradShift {
+  0%, 100% { background-position: 0% 50%; }
+  50%      { background-position: 100% 50%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .avatar-popup .avatar-options :deep(.van-button--primary) {
+    animation: none;
+  }
+  .profile-header .user-avatar .camera-icon,
+  .profile-actions :deep(.van-button--danger) {
+    transition: none;
   }
 }
 </style>

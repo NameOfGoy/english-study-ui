@@ -89,90 +89,83 @@ defineExpose({ cropperRef })
 
 <style lang="scss" scoped>
 .crop-modal {
-  background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
-  border-radius: 20px; padding: 0; overflow: hidden;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
-  border: 1px solid rgba(102, 126, 234, 0.1); position: relative;
+  background: var(--es-surface);
+  border-radius: var(--es-r-card); padding: 0; overflow: hidden;
+  box-shadow: var(--es-shadow-card);
+  border: 1px solid var(--es-hair-soft); position: relative;
 }
 
-.crop-modal::before {
-  content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-  background: linear-gradient(45deg, rgba(102, 126, 234, 0.02) 0%, rgba(118, 75, 162, 0.02) 100%);
-  pointer-events: none; z-index: 0;
-}
+.crop-modal::before { display: none; }
 
 .crop-modal .modal-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white; padding: 20px 24px; margin: 0; border-bottom: none;
+  background: var(--es-grad);
+  color: #fff; padding: 18px 22px; margin: 0; border-bottom: none;
   position: relative; z-index: 1;
   display: flex; justify-content: space-between; align-items: center;
 }
 
 .crop-modal .modal-header::before {
   content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-  background: linear-gradient(45deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+  background: linear-gradient(180deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0) 62%);
   pointer-events: none;
 }
 
 .crop-modal .modal-header h3 {
-  color: white; font-size: 20px; font-weight: 700; margin: 0;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); letter-spacing: 0.5px;
+  color: #fff; font-size: 19px; font-weight: 800; margin: 0;
+  text-shadow: none; letter-spacing: 0.02em;
   position: relative; z-index: 1;
 }
 
 .crop-modal .close-btn {
-  color: white; font-size: 22px; padding: 8px; border-radius: 50%;
-  background: rgba(255, 255, 255, 0.15); backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2); transition: all 0.3s ease;
+  color: #fff; font-size: 20px; padding: 6px; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.16); backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.24); transition: all 0.25s var(--es-ease);
   cursor: pointer; position: relative; z-index: 1;
 }
-.crop-modal .close-btn:hover { background: rgba(255, 255, 255, 0.25); transform: scale(1.1); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); }
+.crop-modal .close-btn:hover { background: rgba(255, 255, 255, 0.26); transform: scale(1.08); }
 .crop-modal .close-btn:active { transform: scale(0.95); }
 
-.crop-modal .modal-content { padding: 24px; margin: 0; position: relative; z-index: 1; }
+.crop-modal .modal-content { padding: 22px; margin: 0; position: relative; z-index: 1; }
 
 .crop-container {
   width: 100%; height: 300px; position: relative; overflow: hidden;
-  border-radius: 16px;
-  background: linear-gradient(145deg, #f8f9fa 0%, #e9ecef 100%);
-  border: 2px solid rgba(102, 126, 234, 0.1);
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06), 0 8px 24px rgba(102, 126, 234, 0.1);
+  border-radius: var(--es-r-card);
+  background: var(--es-hair-soft);
+  border: 1px solid var(--es-hair);
+  box-shadow: inset 0 2px 4px rgba(20, 30, 50, 0.05);
 }
 
-.crop-container::before {
-  content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-  background: linear-gradient(45deg, rgba(102, 126, 234, 0.03) 0%, rgba(118, 75, 162, 0.03) 100%);
-  pointer-events: none; z-index: 0;
-}
+.crop-container::before { display: none; }
 
 .cropper-component { width: 100%; height: 100%; }
 .crop-container .vue-cropper { width: 100% !important; height: 100% !important; }
 
 .crop-modal .modal-actions {
-  display: flex; padding: 20px 24px 24px;
-  background: linear-gradient(145deg, #f8f9fa 0%, #ffffff 100%);
-  border-top: 1px solid rgba(102, 126, 234, 0.1);
-  gap: 16px; position: relative; z-index: 1; justify-content: center;
+  display: flex; padding: 18px 22px 22px;
+  background: var(--es-surface);
+  border-top: 1px solid var(--es-hair);
+  gap: 14px; position: relative; z-index: 1; justify-content: center;
 }
 
 .crop-modal .action-btn {
-  flex: 1; height: 48px; border-radius: 24px; font-weight: 600; font-size: 16px;
-  letter-spacing: 0.5px; transition: all 0.3s ease; border: none;
+  flex: 1; height: 48px; border-radius: var(--es-r-btn); font-weight: 700; font-size: 16px;
+  letter-spacing: 0.02em; transition: all 0.25s var(--es-ease); border: none;
   position: relative; overflow: hidden;
 }
 
 .crop-modal .cancel-btn {
-  background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
-  color: white; box-shadow: 0 4px 16px rgba(108, 117, 125, 0.3);
+  background: var(--es-hair-soft);
+  color: var(--es-ink-2); box-shadow: none;
+  border: 1px solid var(--es-hair);
 }
-.crop-modal .cancel-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(108, 117, 125, 0.4); }
+.crop-modal .cancel-btn:hover { transform: translateY(-1px); background: #e7eef7; }
 .crop-modal .cancel-btn:active { transform: translateY(0); }
 
 .crop-modal .confirm-btn {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white; box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3);
+  background: var(--es-grad);
+  color: #fff; box-shadow: 0 8px 18px -6px rgba(25, 137, 250, 0.45);
 }
-.crop-modal .confirm-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4); }
+.crop-modal .confirm-btn:hover { transform: translateY(-1px); box-shadow: 0 12px 24px -8px rgba(25, 137, 250, 0.5); }
 .crop-modal .confirm-btn:active { transform: translateY(0); }
 
 .crop-modal .action-btn::before {

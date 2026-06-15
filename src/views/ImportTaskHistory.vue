@@ -1,14 +1,18 @@
 <template>
   <div class="task-history-page">
     <!-- 顶部 -->
-    <div class="page-header">
+    <header class="page-header">
       <van-icon name="arrow-left" class="back-btn" @click="$router.back()" />
-      <span class="page-title">导入任务历史</span>
+      <div class="header-text">
+        <span class="es-eyebrow">IMPORT HISTORY</span>
+        <h1 class="page-title es-title">导入<span class="accent">任务历史</span></h1>
+      </div>
       <span class="placeholder"></span>
-    </div>
+    </header>
 
     <!-- 时间范围筛选 -->
-    <div class="filter-bar">
+    <section class="filter-bar">
+      <span class="filter-eyebrow es-eyebrow">时间范围</span>
       <div class="quick-tabs">
         <span
           v-for="q in quickRanges"
@@ -37,19 +41,24 @@
           <van-button size="small" type="primary" round @click="applyCustom">应用</van-button>
         </div>
       </div>
-    </div>
+    </section>
 
     <!-- 任务列表 -->
-    <div class="content">
-      <van-loading v-if="loading" size="24px" vertical>加载中...</van-loading>
+    <section class="content">
+      <div v-if="loading" class="state-wrap">
+        <van-loading size="24px" vertical>加载中...</van-loading>
+      </div>
 
-      <van-empty v-else-if="tasks.length === 0" description="该时段无导入任务" image="search" />
+      <div v-else-if="tasks.length === 0" class="state-wrap">
+        <van-empty description="该时段无导入任务" image="search" />
+      </div>
 
       <div v-else class="task-cards">
-        <div v-for="task in tasks" :key="task.id" class="task-card" :class="statusClass(task.status)">
+        <article v-for="task in tasks" :key="task.id" class="task-card es-card" :class="statusClass(task.status)">
+          <span class="accent-rail" aria-hidden="true"></span>
           <div class="task-header">
             <div class="task-name">{{ task.file_name }}</div>
-            <div class="task-status" :class="statusClass(task.status)">{{ statusText(task.status) }}</div>
+            <div class="task-status es-pill" :class="statusClass(task.status)">{{ statusText(task.status) }}</div>
           </div>
 
           <div v-if="task.status === 1" class="task-progress">
@@ -82,12 +91,12 @@
           </div>
 
           <div class="task-time">{{ task.created_at }}</div>
-        </div>
+        </article>
       </div>
-    </div>
+    </section>
 
     <!-- 日期选择弹窗 -->
-    <van-popup v-model:show="pickerVisible" position="bottom">
+    <van-popup v-model:show="pickerVisible" position="bottom" round>
       <van-date-picker
         v-model="pickerValue"
         :min-date="minDate"
@@ -209,40 +218,75 @@ onMounted(() => {
 </script>
 
 <style lang="scss" scoped>
+/* ============================================================
+   EDITORIAL — import task history
+   Transparent page on the global cool wash, hairline header,
+   refined pill tabs, soft es-cards with a status-tinted accent
+   rail + .es-pill status badge, file meta in muted ink.
+   ============================================================ */
+$ok:    #16A34A;   // semantic success green
+$danger:#E11D48;   // semantic danger red
+$amber: #D97706;   // semantic warning amber
+
 .task-history-page {
   min-height: 100vh;
-  background: #f8f9fa;
+  background: transparent;          // let the global wash show
   padding-bottom: 30px;
 }
 
+/* ---- editorial header ---- */
 .page-header {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px;
-  background: linear-gradient(135deg, #1989fa 0%, #1565c0 100%);
-  color: #fff;
-}
-
-.page-title {
-  font-size: 17px;
-  font-weight: 700;
+  align-items: flex-start;
+  gap: 6px;
+  padding: clamp(18px, 5vw, 26px) 20px 18px;
 }
 
 .back-btn {
+  flex: 0 0 auto;
   font-size: 22px;
   cursor: pointer;
-  padding: 4px;
+  padding: 6px;
+  margin-top: 2px;
+  color: var(--es-ink-2);
+  border-radius: 10px;
+  transition: color .2s var(--es-ease), background .2s var(--es-ease);
+
+  &:active {
+    color: var(--es-primary);
+    background: var(--es-hair-soft);
+  }
+}
+
+.header-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.filter-eyebrow {
+  display: block;
+}
+
+.page-title {
+  margin: 0;
+  font-size: clamp(24px, 7vw, 30px);
 }
 
 .placeholder {
-  width: 30px;
+  flex: 0 0 auto;
+  width: 28px;
 }
 
+/* ---- filter bar ---- */
 .filter-bar {
-  background: #fff;
-  padding: 10px 16px;
-  border-bottom: 1px solid #ebedf0;
+  padding: 4px 20px 18px;
+}
+
+.filter-eyebrow {
+  margin-bottom: 10px;
 }
 
 .quick-tabs {
@@ -252,169 +296,228 @@ onMounted(() => {
 }
 
 .quick-tab {
-  padding: 6px 14px;
-  background: #f0f0f0;
-  border-radius: 14px;
+  padding: 7px 16px;
+  background: var(--es-surface);
+  border: 1px solid var(--es-hair);
+  border-radius: 999px;
   font-size: 13px;
-  color: #646566;
+  font-weight: 600;
+  color: var(--es-ink-2);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all .22s var(--es-ease);
+
+  &:active { transform: scale(.97); }
 
   &.active {
-    background: #1989fa;
     color: #fff;
-    font-weight: 600;
+    border-color: transparent;
+    background: var(--es-grad);
+    box-shadow: 0 6px 14px -4px rgba(25, 137, 250, .45);
   }
 }
 
 .custom-range {
-  margin-top: 10px;
+  margin-top: 14px;
 }
 
 .range-row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   font-size: 13px;
 }
 
 .range-label {
-  color: #969799;
+  color: var(--es-ink-3);
+  font-weight: 600;
   flex-shrink: 0;
 }
 
 .range-value {
   flex: 1;
-  background: #f7f8fa;
-  padding: 6px 10px;
-  border-radius: 8px;
-  color: #1a1a2e;
+  min-width: 0;
+  background: var(--es-surface);
+  border: 1px solid var(--es-hair);
+  padding: 8px 10px;
+  border-radius: var(--es-r-btn);
+  color: var(--es-ink);
   cursor: pointer;
   text-align: center;
+  transition: border-color .2s var(--es-ease), background .2s var(--es-ease);
 
   &:active {
-    background: #e8eaf0;
+    border-color: var(--es-grad-a);
+    background: var(--es-hair-soft);
   }
 }
 
+/* ---- content / states ---- */
 .content {
-  padding: 16px;
+  padding: 4px 20px 0;
+}
+
+.state-wrap {
+  padding: 48px 0;
+  display: flex;
+  justify-content: center;
+
+  :deep(.van-loading__text) { color: var(--es-ink-2); }
+  :deep(.van-empty__description) { color: var(--es-ink-3); }
 }
 
 .task-cards {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
+/* ---- task card (soft editorial surface) ---- */
 .task-card {
-  background: #fff;
-  border-radius: 10px;
-  padding: 14px;
-  border-left: 3px solid #ddd;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  position: relative;
+  padding: 16px 16px 14px 18px;
+  overflow: hidden;
 
-  &.running { border-left-color: #1989fa; }
-  &.done { border-left-color: #07c160; }
-  &.failed { border-left-color: #ee0a24; }
-  &.pending { border-left-color: #ff976a; }
+  .accent-rail {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
+    background: var(--es-hair);
+  }
+
+  &.running .accent-rail { background: var(--es-grad); }
+  &.done    .accent-rail { background: $ok; }
+  &.failed  .accent-rail { background: $danger; }
+  &.pending .accent-rail { background: $amber; }
 }
 
 .task-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  gap: 10px;
+  margin-bottom: 10px;
 }
 
 .task-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: #323233;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--es-ink);
   flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  margin-right: 8px;
 }
 
+/* status badge — .es-pill tinted by status */
 .task-status {
+  flex: 0 0 auto;
+  height: 24px;
+  padding: 0 12px;
   font-size: 12px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 4px;
 
-  &.pending { color: #ff976a; background: #fff3e0; }
-  &.running { color: #1989fa; background: #e3f2fd; }
-  &.done { color: #07c160; background: #e8f5e9; }
-  &.failed { color: #ee0a24; background: #fce4ec; }
+  &.pending { color: $amber;  background: rgba(217, 119, 6, .12); }
+  &.running { color: var(--es-primary); background: rgba(25, 137, 250, .12); }
+  &.done    { color: $ok;     background: rgba(22, 163, 74, .12); }
+  &.failed  { color: $danger; background: rgba(225, 29, 72, .12); }
 }
 
 .task-progress {
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 
   .progress-info {
     display: flex;
     justify-content: space-between;
+    gap: 10px;
     font-size: 12px;
-    color: #646566;
-    margin-bottom: 4px;
+    color: var(--es-ink-2);
+    margin-bottom: 6px;
   }
 
   .current-word {
-    color: #1989fa;
-    font-weight: 500;
-    max-width: 120px;
+    color: var(--es-primary);
+    font-weight: 600;
+    max-width: 140px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  :deep(.van-progress) {
+    border-radius: 999px;
+    overflow: hidden;
   }
 }
 
 .task-stats {
   display: flex;
-  gap: 12px;
-  margin-bottom: 6px;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 4px;
 
   .stat {
     font-size: 12px;
-    color: #969799;
-    &.success { color: #07c160; }
-    &.fail { color: #ee0a24; }
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 999px;
+    color: var(--es-ink-2);
+    background: var(--es-hair-soft);
+
+    &.success { color: $ok;     background: rgba(22, 163, 74, .10); }
+    &.fail    { color: $danger; background: rgba(225, 29, 72, .10); }
+    &.total   { color: var(--es-ink-3); }
   }
 }
 
 .fail-section {
-  margin-top: 6px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--es-hair);
 
   .fail-toggle {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     gap: 4px;
     font-size: 12px;
-    color: #ee0a24;
+    font-weight: 600;
+    color: $danger;
     cursor: pointer;
-    margin-bottom: 4px;
+    margin-bottom: 8px;
   }
 
   .fail-words {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px;
+    gap: 6px;
   }
 
   .fail-word {
     font-size: 11px;
-    background: #fce4ec;
-    color: #ee0a24;
-    padding: 2px 6px;
-    border-radius: 4px;
+    background: rgba(225, 29, 72, .10);
+    color: $danger;
+    padding: 3px 8px;
+    border-radius: 999px;
   }
 }
 
 .task-time {
+  margin-top: 10px;
   font-size: 11px;
-  color: #c8c9cc;
+  letter-spacing: .02em;
+  color: var(--es-ink-3);
   text-align: right;
+}
+
+/* ---- restyle the date picker popup chrome ---- */
+:deep(.van-picker__confirm) { color: var(--es-primary); }
+:deep(.van-picker__title)   { color: var(--es-ink); font-weight: 700; }
+
+@media (prefers-reduced-motion: reduce) {
+  .quick-tab,
+  .range-value,
+  .back-btn { transition: none; }
 }
 </style>

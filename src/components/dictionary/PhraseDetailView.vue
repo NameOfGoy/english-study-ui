@@ -165,7 +165,7 @@ const onSaveTranslation = async (newItems) => {
 .edit-trans-btn {
   margin-left: 8px;
   font-size: 14px;
-  color: #1989fa;
+  color: var(--es-primary);
   cursor: pointer;
   vertical-align: middle;
   padding: 2px 6px;
@@ -175,10 +175,11 @@ const onSaveTranslation = async (newItems) => {
 .edit-trans-btn:active { background: rgba(25, 137, 250, 0.15); }
 
 .phrase-detail {
-  background: white;
-  border-radius: 16px;
+  background: var(--es-surface);
+  border-radius: var(--es-r-card);
   overflow: hidden;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--es-shadow-card);
+  border: 1px solid var(--es-hair-soft);
   width: 100%;
   min-height: 400px;
   will-change: transform, opacity;
@@ -186,76 +187,79 @@ const onSaveTranslation = async (newItems) => {
   -webkit-backface-visibility: hidden;
 }
 
-/* 自定义导航栏样式 */
+/* 顶部导航 — 冷蓝渐变, 与练习页头部一致 */
 .custom-nav-bar {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 16px 20px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white; position: relative; overflow: hidden;
+  padding: 18px 20px;
+  background: var(--es-grad);
+  color: #fff; position: relative; overflow: hidden;
 }
 .custom-nav-bar::before {
   content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-  background: linear-gradient(45deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+  background: linear-gradient(180deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0) 62%);
   pointer-events: none;
 }
 .nav-left { flex: 1; display: flex; align-items: center; }
 .back-btn {
-  display: flex; align-items: center; gap: 6px; padding: 6px 10px;
-  border-radius: 16px; background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2);
-  cursor: pointer; transition: all 0.3s ease; user-select: none;
+  display: flex; align-items: center; gap: 6px; padding: 6px 12px;
+  border-radius: 999px; background: rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.24);
+  cursor: pointer; transition: all 0.25s var(--es-ease); user-select: none;
 }
-.back-btn:hover { background: rgba(255, 255, 255, 0.25); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); }
+.back-btn:hover { background: rgba(255, 255, 255, 0.26); transform: translateY(-1px); box-shadow: 0 6px 16px rgba(20, 30, 50, 0.18); }
 .back-btn:active { transform: translateY(0); background: rgba(255, 255, 255, 0.2); }
-.back-icon { width: 16px; height: 16px; color: white; transition: transform 0.3s ease; }
+.back-icon { width: 16px; height: 16px; color: #fff; transition: transform 0.25s var(--es-ease); }
 .back-btn:hover .back-icon { transform: translateX(-2px); }
-.back-text { font-size: 13px; font-weight: 500; color: white; }
+.back-text { font-size: 13px; font-weight: 600; color: #fff; }
 .nav-center { flex: 2; text-align: center; position: relative; z-index: 1; }
-.nav-title { font-size: 20px; font-weight: 700; margin: 0; color: white; text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); letter-spacing: 0.5px; }
-.nav-subtitle { font-size: 12px; color: rgba(255, 255, 255, 0.8); margin-top: 2px; font-weight: 400; letter-spacing: 1px; text-transform: uppercase; }
+.nav-title { font-size: 19px; font-weight: 800; margin: 0; color: #fff; letter-spacing: 0.02em; }
+.nav-subtitle { font-size: 11px; color: rgba(255, 255, 255, 0.82); margin-top: 3px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; }
 .nav-right { flex: 1; display: flex; justify-content: flex-end; align-items: center; }
 
-.word-card { padding: 24px; background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%); border-radius: 0 0 16px 16px; }
+.word-card { padding: 22px 20px 26px; background: var(--es-surface); border-radius: 0; }
 
 .word-title {
-  text-align: center; margin-bottom: 20px; padding: 20px 0;
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-  border-radius: 12px; position: relative; overflow: hidden;
+  text-align: center; margin-bottom: 22px; padding: 8px 0 22px;
+  background: transparent;
+  border-radius: 0; border-bottom: 1px solid var(--es-hair);
+  position: relative; overflow: visible;
 }
-.word-title::before {
-  content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-  background: linear-gradient(45deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
-  pointer-events: none;
-}
+.word-title::before { display: none; }
 .word-title h2 {
-  color: #2c3e50; font-size: 36px; font-weight: 800; margin: 0; text-align: center;
-  position: relative; z-index: 1; text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); letter-spacing: 1px;
+  color: var(--es-ink); font-size: 36px; font-weight: 800; margin: 0; text-align: center;
+  position: relative; z-index: 1; text-shadow: none; letter-spacing: -0.01em; line-height: 1.1;
 }
 
 .phrase-detail-section {
-  margin-top: 16px; padding: 16px 18px; border-radius: 12px;
-  background: linear-gradient(180deg, #f8fbff 0%, #eef5ff 100%);
-  box-shadow: 0 4px 12px rgba(91, 106, 255, 0.08);
-  border: 1px solid rgba(91, 106, 255, 0.15);
+  margin-top: 18px; padding: 16px 18px; border-radius: var(--es-r-card);
+  background: var(--es-hair-soft);
+  box-shadow: none;
+  border: 1px solid var(--es-hair);
 }
 
 .phrase-pronunciation-section,
 .phrase-translation-section {
-  margin-top: 10px; background: #fff; border-radius: 12px; padding: 8px 12px;
-  border: 1px solid rgba(102, 126, 234, 0.1); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  margin-top: 12px; background: var(--es-surface); border-radius: 12px; padding: 12px 14px;
+  border: 1px solid var(--es-hair); box-shadow: var(--es-shadow-soft);
 }
 
+/* 小标题 — eyebrow + 竖条 accent */
 .phrase-section-title {
-  color: white; font-size: 20px; font-weight: 700; margin: 0 0 8px 0; padding: 8px 12px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 12px; text-align: center;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); letter-spacing: 0.5px;
-  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.2);
+  display: flex; align-items: center; gap: 9px;
+  color: var(--es-ink); font-size: 15px; font-weight: 800; margin: 0 0 10px 0; padding: 0;
+  background: transparent;
+  border-radius: 0; text-align: left;
+  text-shadow: none; letter-spacing: 0.01em; box-shadow: none;
+}
+.phrase-section-title::before {
+  content: '';
+  width: 4px; height: 16px; border-radius: 2px;
+  background: var(--es-grad);
 }
 
-.pronunciation-row { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 4px 0; }
+.pronunciation-row { display: flex; align-items: center; justify-content: flex-start; gap: 8px; padding: 4px 0; }
 
-.definition-text { font-size: 16px; color: #2c3e50; font-weight: 600; line-height: 1.5; margin: 0; }
+.definition-text { font-size: 16px; color: var(--es-ink); font-weight: 600; line-height: 1.5; margin: 0; }
 
 .audio-btn-container { position: relative; display: inline-block; }
 
@@ -264,7 +268,7 @@ const onSaveTranslation = async (newItems) => {
   background: transparent !important; border: none !important;
   box-shadow: none !important; transition: all 0.3s ease; padding: 0 !important;
 }
-.play-btn:hover { background: transparent !important; color: #1989fa !important; transform: scale(1.1); }
+.play-btn:hover { background: transparent !important; color: var(--es-primary) !important; transform: scale(1.1); }
 .play-btn.playing { animation: pulse 1s infinite; color: #52c41a !important; background: transparent !important; }
 .play-btn:active { background: transparent !important; }
 .play-btn:focus { background: transparent !important; outline: none !important; }
@@ -289,18 +293,18 @@ const onSaveTranslation = async (newItems) => {
 
 .picture-action { margin: 10px 0 2px; display: flex; justify-content: flex-start; }
 
-.picture-toggle-btn { height: 28px; padding: 0 12px; border-radius: 14px; }
-.picture-toggle-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(25, 137, 250, 0.3); }
+.picture-toggle-btn { height: 30px; padding: 0 16px; border-radius: 999px; box-shadow: 0 4px 12px -4px rgba(25, 137, 250, 0.3); transition: all 0.25s var(--es-ease); }
+.picture-toggle-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 18px -6px rgba(25, 137, 250, 0.4); }
 
 /* 例句样式 */
-.examples-section { margin-top: 15px; background: white; border-radius: 8px; padding: 15px; }
-.examples-title { color: #333; font-size: 16px; font-weight: bold; margin: 0 0 10px 0; border-bottom: 1px solid #eee; padding-bottom: 5px; }
-.example-item { margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #eee; }
+.examples-section { margin-top: 15px; background: var(--es-hair-soft); border-radius: 12px; padding: 14px; border: 1px solid var(--es-hair); }
+.examples-title { color: var(--es-ink); font-size: 15px; font-weight: 700; margin: 0 0 10px 0; border-bottom: 1px solid var(--es-hair); padding-bottom: 6px; }
+.example-item { margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--es-hair); }
 .example-item:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
-.example-text { font-style: italic; color: #333; margin-bottom: 5px; line-height: 1.6; }
-.example-translation { color: #666; font-size: 14px; margin: 0; }
+.example-text { font-style: italic; color: var(--es-ink); margin-bottom: 5px; line-height: 1.6; }
+.example-translation { color: var(--es-ink-2); font-size: 14px; margin: 0; }
 
 /* 图片样式 */
 .picture-section { margin-top: 15px; text-align: center; }
-.modal-picture { width: 100%; aspect-ratio: 1; border-radius: 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); }
+.modal-picture { width: 100%; aspect-ratio: 1; border-radius: 12px; box-shadow: var(--es-shadow-soft); }
 </style>

@@ -33,7 +33,8 @@ export default {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background-color: #f8f9fa;
+  background: var(--es-wash, #f8f9fa);
+  background-attachment: fixed;
 }
 
 .main-content {

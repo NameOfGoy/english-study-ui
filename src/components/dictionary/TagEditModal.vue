@@ -218,7 +218,7 @@ const handleSubmit = () => {
 }
 
 .modal-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--es-grad);
   padding: 16px 20px;
   display: flex;
   justify-content: space-between;

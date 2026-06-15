@@ -88,6 +88,36 @@ const routes = [
     }
   },
   {
+    path: '/practice/article/instant',
+    name: 'ArticleInstant',
+    component: () => import('@/views/ArticleInstant.vue'),
+    meta: {
+      title: '即时文章',
+      requiresAuth: true,
+      showTabbar: false
+    }
+  },
+  {
+    path: '/practice/article/library',
+    name: 'ArticleLibrary',
+    component: () => import('@/views/ArticleLibrary.vue'),
+    meta: {
+      title: '收录文章',
+      requiresAuth: true,
+      showTabbar: true
+    }
+  },
+  {
+    path: '/practice/article/library/:id',
+    name: 'ArticleLibraryDetail',
+    component: () => import('@/views/ArticleLibraryDetail.vue'),
+    meta: {
+      title: '文章详情',
+      requiresAuth: true,
+      showTabbar: false
+    }
+  },
+  {
     path: '/dictionary',
     name: 'Dictionary',
     component: Dictionary,

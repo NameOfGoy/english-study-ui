@@ -11,8 +11,14 @@
       </div>
 
       <div class="modal-content">
+        <!-- 生成中：整块占位的 loading 框 -->
+        <div v-if="generatingPicture" class="generating-box">
+          <van-loading vertical size="34px" color="#1989fa">正在生成图片…</van-loading>
+          <p class="generating-hint">AI 绘图中，大约需要十几秒，请稍候</p>
+        </div>
+
         <!-- 当前图片展示 -->
-        <div v-if="currentPicture" class="current-picture">
+        <div v-else-if="currentPicture" class="current-picture">
           <van-image
             :src="getResourceUrl(currentPicture)"
             fit="cover"
@@ -52,8 +58,8 @@
         </van-button>
       </div>
 
-      <!-- 正常状态：显示操作按钮 -->
-      <div v-else class="modal-actions">
+      <!-- 正常状态：显示操作按钮 (生成中隐藏, 由上方 loading 框接管) -->
+      <div v-else-if="!generatingPicture" class="modal-actions">
         <van-button
           type="primary"
           @click="$emit('generate')"
@@ -127,6 +133,33 @@ const visible = computed({
 .close-btn:hover { color: #666; }
 
 .modal-content { margin-bottom: 20px; position: relative; }
+
+/* 生成中 loading 框 — 占满弹窗宽度的方形, 替代之前按钮里的小转圈 */
+.generating-box {
+  width: 100%;
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: var(--es-hair-soft, #eef3fa);
+  border: 1px solid var(--es-hair, #e6ecf5);
+  border-radius: 12px;
+  text-align: center;
+}
+.generating-box :deep(.van-loading__text) {
+  color: var(--es-ink-2, #6b7280);
+  font-size: 15px;
+  font-weight: 600;
+}
+.generating-hint {
+  margin: 0;
+  padding: 0 24px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--es-ink-3, #9aa3af);
+}
 
 .current-picture { position: relative; }
 .current-picture .van-image { width: 100%; aspect-ratio: 1; border-radius: 8px; }

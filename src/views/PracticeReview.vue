@@ -3,7 +3,7 @@
     <PracticeHeader
       title="复习模式"
       subtitle="Review Mode"
-      gradient="linear-gradient(135deg, #ff9800 0%, #e65100 100%)"
+      gradient="linear-gradient(135deg, #6C7BF0 0%, #4E5FE0 100%)"
       :current="currentIndex + 1"
       :total="wordCards.length"
       @back="goBack"
@@ -176,8 +176,8 @@ onMounted(() => loadWordCards())
 <style lang="scss" scoped>
 @import '@/styles/practice-common.scss';
 .practice-review {
-  --mode-color: #ff9800;
-  --mode-color-light: #fff3e0;
-  --mode-gradient: linear-gradient(135deg, #fff3e0 0%, #fffaf0 50%, #ffffff 100%);
+  --mode-color: #6C7BF0;
+  --mode-color-light: #ECEEFE;
+  --mode-gradient: linear-gradient(135deg, #ECEEFE 0%, #F5F6FF 50%, #ffffff 100%);
 }
 </style>

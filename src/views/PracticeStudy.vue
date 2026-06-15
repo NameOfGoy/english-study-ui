@@ -3,7 +3,7 @@
     <PracticeHeader
       title="学习模式"
       subtitle="Study Mode"
-      gradient="linear-gradient(135deg, #1989fa 0%, #1565c0 100%)"
+      gradient="linear-gradient(135deg, #3DA5F4 0%, #1E88E5 100%)"
       :current="currentIndex + 1"
       :total="wordCards.length"
       @back="goBack"
@@ -276,9 +276,9 @@ onMounted(() => loadWordCards())
 <style lang="scss" scoped>
 @import '@/styles/practice-common.scss';
 .practice-study {
-  --mode-color: #1989fa;
-  --mode-color-light: #e3f2fd;
-  --mode-gradient: linear-gradient(135deg, #e3f2fd 0%, #f5f9ff 50%, #ffffff 100%);
+  --mode-color: #3DA5F4;
+  --mode-color-light: #EAF4FE;
+  --mode-gradient: linear-gradient(135deg, #EAF4FE 0%, #F6FAFF 50%, #ffffff 100%);
 }
 
 .edit-trans-btn {

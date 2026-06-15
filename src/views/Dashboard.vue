@@ -1,11 +1,13 @@
 <template>
   <div class="dashboard-page">
-    <!-- 顶部问候区 -->
-    <div class="greeting-header">
+    <!-- 顶部问候区 — editorial greeting on the cool wash (no opaque header bar) -->
+    <header class="greeting-header">
       <div class="greeting-row">
         <div class="greeting-text">
-          <p class="hello">{{ greeting }}</p>
-          <h1 class="nickname">{{ nicknameDisplay }}</h1>
+          <p class="hello es-eyebrow">TODAY · {{ greeting }}</p>
+          <h1 class="nickname es-title">
+            <span class="accent">{{ nicknameDisplay }}</span>
+          </h1>
         </div>
         <van-image
           v-if="avatar"
@@ -18,8 +20,8 @@
         <div v-else class="avatar avatar-fallback">{{ nicknameInitial }}</div>
       </div>
 
-      <!-- 悬浮统计卡 -->
-      <div class="stats-card">
+      <!-- 统计卡 — soft white surface, hairline dividers -->
+      <div class="stats-card es-card">
         <div class="stat-col">
           <div class="stat-num study">{{ data.study_count }}</div>
           <div class="stat-label">待学习</div>
@@ -35,13 +37,13 @@
           <div class="stat-label">已掌握</div>
         </div>
       </div>
-    </div>
+    </header>
 
     <!-- 内容区 -->
     <div class="content">
       <van-pull-refresh v-model="refreshing" @refresh="loadData">
         <!-- 进度条 -->
-        <div class="progress-section">
+        <div class="progress-section es-card">
           <div class="progress-header">
             <span class="progress-title">学习进度</span>
             <span class="progress-percent">{{ progressPercent }}%</span>
@@ -60,7 +62,10 @@
 
         <!-- 快速开始模式卡片 -->
         <div class="mode-section">
-          <h3 class="section-title">快速开始</h3>
+          <div class="section-head">
+            <span class="es-eyebrow">PRACTICE</span>
+            <h3 class="section-title">快速开始</h3>
+          </div>
           <div class="mode-grid">
             <div
               v-for="mode in modes"
@@ -83,8 +88,11 @@
         </div>
 
         <!-- 今日完成情况 -->
-        <div class="today-section">
-          <h3 class="section-title">今日已完成</h3>
+        <div class="today-section es-card">
+          <div class="section-head">
+            <span class="es-eyebrow">PROGRESS</span>
+            <h3 class="section-title">今日已完成</h3>
+          </div>
           <div class="today-grid">
             <div class="today-item">
               <div class="today-num">{{ data.today_studied }}</div>
@@ -106,7 +114,7 @@
         </div>
 
         <!-- 新用户引导 -->
-        <div v-if="data.total_words === 0 && !loading" class="empty-guide">
+        <div v-if="data.total_words === 0 && !loading" class="empty-guide es-card">
           <van-empty
             description="还没有添加单词，去添加吧"
             image="search"
@@ -233,64 +241,77 @@ onActivated(loadData)
 </script>
 
 <style scoped>
+/* ============================================================
+   EDITORIAL DASHBOARD — premium light, cool-blue brand only.
+   Greeting on the global cool wash (transparent page bg),
+   real content on soft white .es-card surfaces + hairlines.
+   ============================================================ */
 .dashboard-page {
   min-height: 100vh;
-  background: #f8f9fa;
-  padding-bottom: 70px;
+  /* let the global cool wash (#app) show through — no opaque flat bg */
+  background: transparent;
 }
 
+/* ---- editorial greeting block (no colored header bar) ---- */
 .greeting-header {
-  background: linear-gradient(135deg, #1989fa 0%, #1565c0 100%);
-  padding: 32px 20px 60px;
-  color: #fff;
-  position: relative;
+  padding: clamp(26px, 7vh, 44px) 20px 22px;
 }
 
 .greeting-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 16px;
+}
+
+.greeting-text {
+  min-width: 0;
 }
 
 .hello {
-  font-size: 14px;
-  opacity: 0.9;
-  margin: 0 0 4px;
+  margin: 0 0 10px;
+  /* small UPPERCASE letter-spaced eyebrow (es-eyebrow handles type) */
 }
 
 .nickname {
-  font-size: 22px;
-  font-weight: 700;
   margin: 0;
+  font-size: clamp(30px, 9vw, 38px);
+  line-height: 1.04;
+  letter-spacing: -0.02em;
 }
+/* gradient-clipped accent inherited from .es-title .accent */
 
 .avatar {
-  border: 2px solid rgba(255, 255, 255, 0.5);
+  flex: 0 0 auto;
+  box-shadow: 0 8px 20px -8px rgba(25, 137, 250, 0.4);
+}
+:deep(.avatar .van-image__img),
+:deep(.avatar img) {
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.9);
 }
 
 .avatar-fallback {
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.25);
+  background: var(--es-grad);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
-  font-weight: 700;
-  border: 2px solid rgba(255, 255, 255, 0.5);
+  font-size: 19px;
+  font-weight: 800;
+  color: #fff;
+  box-shadow: 0 8px 20px -8px rgba(25, 137, 250, 0.5),
+              inset 0 1px 0 rgba(255, 255, 255, 0.4);
 }
 
+/* ---- floating stats summary card ---- */
 .stats-card {
-  background: #fff;
-  border-radius: 16px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
   display: flex;
   align-items: center;
   justify-content: space-around;
   padding: 18px 8px;
-  margin: 24px 4px -40px;
-  position: relative;
+  margin-top: 22px;
 }
 
 .stat-col {
@@ -299,89 +320,133 @@ onActivated(loadData)
 }
 
 .stat-num {
-  font-size: 26px;
+  font-size: 27px;
   font-weight: 800;
-  line-height: 1.2;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
 }
 
-.stat-num.study { color: #1989fa; }
-.stat-num.review { color: #ff9800; }
-.stat-num.finish { color: #07c160; }
+/* cool-brand recolor — review no longer orange */
+.stat-num.study  { color: var(--es-primary); }
+.stat-num.review { color: #6C7BF0; }
+.stat-num.finish { color: #07c160; } /* semantic success green */
 
 .stat-label {
   font-size: 12px;
-  color: #969799;
-  margin-top: 2px;
+  color: var(--es-ink-3);
+  margin-top: 4px;
+  letter-spacing: 0.02em;
 }
 
 .stat-divider {
   width: 1px;
   height: 30px;
-  background: #ebedf0;
+  background: var(--es-hair);
 }
 
+/* ---- content area ---- */
 .content {
-  padding: 50px 16px 20px;
+  padding: 14px 16px 8px;
 }
 
-.progress-section {
-  background: #fff;
-  border-radius: 12px;
-  padding: 16px;
+/* card rhythm */
+.progress-section,
+.today-section,
+.empty-guide {
   margin-bottom: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
+/* ---- progress card ---- */
 .progress-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
+  align-items: baseline;
+  margin-bottom: 12px;
 }
 
 .progress-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #323233;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--es-ink);
+  letter-spacing: -0.01em;
 }
 
 .progress-percent {
-  font-size: 14px;
-  font-weight: 700;
-  color: #1989fa;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  background: linear-gradient(120deg, var(--es-primary), var(--es-grad-b));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* restyle van-progress: soft track + cool gradient fill */
+:deep(.van-progress) {
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--es-hair-soft);
+}
+:deep(.van-progress__portion) {
+  border-radius: 999px;
+  /* cool brand gradient overlay on top of the bound :color */
+  background-image: var(--es-grad);
 }
 
 .progress-tip {
-  font-size: 12px;
-  color: #969799;
-  margin: 8px 0 0;
+  font-size: 12.5px;
+  color: var(--es-ink-2);
+  margin: 12px 0 0;
+  letter-spacing: 0.01em;
+}
+
+/* ---- section heads (eyebrow + title) ---- */
+.section-head {
+  margin: 4px 0 14px;
+}
+.section-head .es-eyebrow {
+  display: block;
+  margin-bottom: 6px;
 }
 
 .section-title {
-  font-size: 16px;
-  font-weight: 700;
-  color: #1a1a2e;
-  margin: 16px 0 12px;
+  font-size: 19px;
+  font-weight: 800;
+  color: var(--es-ink);
+  letter-spacing: -0.02em;
+  margin: 0;
+  line-height: 1.1;
 }
 
+/* ---- mode shortcut cards (harmonized cool mode colors) ---- */
 .mode-section {
-  margin-bottom: 16px;
+  margin: 4px 0 16px;
 }
 
 .mode-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  gap: 12px;
 }
 
 .mode-card {
   position: relative;
-  background: var(--mode-bg);
-  border-radius: 12px;
-  padding: 14px 14px 14px 18px;
+  background: var(--es-surface);
+  border-radius: var(--es-r-card);
+  padding: 16px 16px 16px 20px;
   cursor: pointer;
   overflow: hidden;
-  transition: transform 0.15s ease;
+  box-shadow: var(--es-shadow-soft);
+  transition: transform 0.15s var(--es-ease), box-shadow 0.2s var(--es-ease);
+}
+/* faint tint wash keyed to each mode's harmonized color */
+.mode-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--mc, var(--es-primary));
+  opacity: 0.06;
+  pointer-events: none;
 }
 
 .mode-card:active {
@@ -391,40 +456,48 @@ onActivated(loadData)
 .mode-card-bar {
   position: absolute;
   left: 0;
-  top: 12px;
-  bottom: 12px;
+  top: 14px;
+  bottom: 14px;
   width: 4px;
-  background: var(--mode-color);
+  background: var(--mc, var(--es-primary));
   border-radius: 0 4px 4px 0;
+  z-index: 1;
+}
+
+.mode-card-content {
+  position: relative;
+  z-index: 1;
 }
 
 .mode-card-name {
   font-size: 14px;
-  font-weight: 600;
-  color: #323233;
+  font-weight: 700;
+  color: var(--es-ink);
+  letter-spacing: 0.01em;
 }
 
 .mode-card-count {
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 800;
-  color: var(--mode-color);
-  margin-top: 4px;
+  letter-spacing: -0.02em;
+  color: var(--mc, var(--es-primary));
+  margin-top: 6px;
 }
 
 .mode-card-unit {
   font-size: 12px;
-  font-weight: 500;
-  color: #969799;
+  font-weight: 600;
+  color: var(--es-ink-3);
   margin-left: 2px;
 }
 
-.today-section {
-  background: #fff;
-  border-radius: 12px;
-  padding: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-}
+/* harmonized practice-mode palette (overrides the legacy inline colors) */
+.mode-study    { --mc: #3DA5F4; }
+.mode-review   { --mc: #6C7BF0; }
+.mode-strength { --mc: #16C0CB; }
+.mode-spot     { --mc: #9B6DFF; }
 
+/* ---- today completion card ---- */
 .today-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -434,25 +507,52 @@ onActivated(loadData)
 .today-item {
   text-align: center;
   padding: 8px 0;
+  position: relative;
+}
+.today-item + .today-item::before {
+  content: "";
+  position: absolute;
+  left: -4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1px;
+  height: 26px;
+  background: var(--es-hair);
 }
 
 .today-num {
-  font-size: 20px;
+  font-size: 21px;
   font-weight: 800;
-  color: #1989fa;
+  letter-spacing: -0.02em;
+  color: var(--es-primary);
 }
 
-.today-item:nth-child(2) .today-num { color: #ff9800; }
-.today-item:nth-child(3) .today-num { color: #ff5722; }
-.today-item:nth-child(4) .today-num { color: #07c160; }
+/* harmonized cool recolor — no orange/red */
+.today-item:nth-child(2) .today-num { color: #6C7BF0; }
+.today-item:nth-child(3) .today-num { color: #16C0CB; }
+.today-item:nth-child(4) .today-num { color: #07c160; } /* semantic total */
 
 .today-label {
   font-size: 12px;
-  color: #969799;
-  margin-top: 2px;
+  color: var(--es-ink-3);
+  margin-top: 4px;
+  letter-spacing: 0.02em;
 }
 
+/* ---- new-user empty guide ---- */
 .empty-guide {
-  margin-top: 30px;
+  padding: 24px 18px;
+}
+:deep(.empty-guide .van-button) {
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  border: 0;
+  background: linear-gradient(118deg, var(--es-grad-a) 0%, var(--es-primary) 56%, var(--es-teal) 130%);
+  box-shadow: 0 10px 24px -8px rgba(25, 137, 250, 0.42),
+              inset 0 1px 0 rgba(255, 255, 255, 0.36);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mode-card { transition: none; }
 }
 </style>

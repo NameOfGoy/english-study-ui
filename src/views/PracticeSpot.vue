@@ -3,7 +3,7 @@
     <PracticeHeader
       title="抽查模式"
       subtitle="Spot Check"
-      gradient="linear-gradient(135deg, #7c4dff 0%, #651fff 100%)"
+      gradient="linear-gradient(135deg, #9B6DFF 0%, #7B4DEB 100%)"
       :current="currentIndex + 1"
       :total="wordCards.length"
       @back="goBack"
@@ -173,8 +173,8 @@ onMounted(() => loadWordCards())
 <style lang="scss" scoped>
 @import '@/styles/practice-common.scss';
 .practice-spot {
-  --mode-color: #7c4dff;
-  --mode-color-light: #ede7f6;
-  --mode-gradient: linear-gradient(135deg, #ede7f6 0%, #f5f0ff 50%, #ffffff 100%);
+  --mode-color: #9B6DFF;
+  --mode-color-light: #F0E9FF;
+  --mode-gradient: linear-gradient(135deg, #F0E9FF 0%, #F7F3FF 50%, #ffffff 100%);
 }
 </style>

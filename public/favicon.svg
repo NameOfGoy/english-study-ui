@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a9df5"/>
+      <stop offset="1" stop-color="#1170e0"/>
+    </linearGradient>
+  </defs>
+  <!-- 蓝底圆角方块 (主题色 #1989fa 系) -->
+  <rect x="0" y="0" width="100" height="100" rx="22" fill="url(#bg)"/>
+  <!-- 大写 A: 外三角 - 上方倒三角内孔 - 底部分脚缺口 (evenodd 打孔), 形成带横杠的 A -->
+  <path fill="#ffffff" fill-rule="evenodd"
+        d="M50 16 L76 62 L24 62 Z
+           M50 35 L60 50 L40 50 Z
+           M50 56 L57 62 L43 62 Z"/>
+  <!-- 翻开的书: 左右两页, 中间留缝当书脊 -->
+  <path fill="#ffffff" d="M47 67 C39 64 28 65 21 69 L21 80 C28 77 40 77 47 79.5 Z"/>
+  <path fill="#ffffff" d="M53 67 C61 64 72 65 79 69 L79 80 C72 77 60 77 53 79.5 Z"/>
+</svg>

@@ -3,7 +3,7 @@
     <PracticeHeader
       title="强化模式"
       subtitle="Strengthen"
-      gradient="linear-gradient(135deg, #ff6b35 0%, #e64a19 100%)"
+      gradient="linear-gradient(135deg, #16C0CB 0%, #0E9AA3 100%)"
       :current="currentIndex + 1"
       :total="wordCards.length"
       @back="goBack"
@@ -176,8 +176,8 @@ onMounted(() => loadWordCards())
 <style lang="scss" scoped>
 @import '@/styles/practice-common.scss';
 .practice-strength {
-  --mode-color: #ff6b35;
-  --mode-color-light: #fbe9e7;
-  --mode-gradient: linear-gradient(135deg, #fbe9e7 0%, #fff5f0 50%, #ffffff 100%);
+  --mode-color: #16C0CB;
+  --mode-color-light: #E2F7F9;
+  --mode-gradient: linear-gradient(135deg, #E2F7F9 0%, #F1FBFC 50%, #ffffff 100%);
 }
 </style>

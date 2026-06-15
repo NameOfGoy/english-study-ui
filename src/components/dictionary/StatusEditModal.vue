@@ -119,20 +119,20 @@ const handleSubmit = () => {
 
 <style lang="scss" scoped>
 .status-modal {
-  background: white;
-  border-radius: 16px;
+  background: var(--es-surface);
+  border-radius: var(--es-r-card);
   overflow: hidden;
 
   .modal-header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--es-grad);
     padding: 20px; display: flex; justify-content: space-between; align-items: center;
 
-    h3 { color: white; font-size: 20px; font-weight: 700; margin: 0; letter-spacing: 0.5px; }
+    h3 { color: #fff; font-size: 20px; font-weight: 800; margin: 0; letter-spacing: 0.02em; }
 
     .close-btn {
-      color: white; font-size: 22px; cursor: pointer; padding: 4px;
-      border-radius: 50%; transition: all 0.2s ease;
-      &:hover { background-color: rgba(255, 255, 255, 0.15); }
+      color: #fff; font-size: 22px; cursor: pointer; padding: 4px;
+      border-radius: 50%; transition: all 0.2s var(--es-ease);
+      &:hover { background-color: rgba(255, 255, 255, 0.16); }
     }
   }
 
@@ -141,8 +141,8 @@ const handleSubmit = () => {
 
     .word-info {
       text-align: center; margin-bottom: 24px;
-      h4 { font-size: 24px; font-weight: 700; color: #2c3e50; margin: 0 0 8px 0; }
-      .word-subtitle { color: #7f8c8d; font-size: 14px; margin: 0; }
+      h4 { font-size: 24px; font-weight: 800; color: var(--es-ink); margin: 0 0 8px 0; letter-spacing: -0.01em; }
+      .word-subtitle { color: var(--es-ink-3); font-size: 14px; margin: 0; }
     }
 
     .status-radio {
@@ -150,9 +150,9 @@ const handleSubmit = () => {
 
       .radio-icon {
         display: flex; align-items: center; justify-content: center;
-        width: 20px; height: 20px; border: 2px solid #ddd; border-radius: 50%; margin-right: 12px;
+        width: 20px; height: 20px; border: 2px solid var(--es-hair); border-radius: 50%; margin-right: 12px;
 
-        &.checked { border-color: #667eea; background: #667eea; }
+        &.checked { border-color: var(--es-primary); background: var(--es-primary); }
 
         .status-dot {
           width: 10px; height: 10px; border-radius: 50%;
@@ -171,14 +171,14 @@ const handleSubmit = () => {
       display: flex; gap: 12px; margin-top: 24px;
 
       .action-btn {
-        flex: 1; height: 48px; border-radius: 24px; font-weight: 600; font-size: 16px;
-        border: none; cursor: pointer; transition: all 0.3s ease;
+        flex: 1; height: 48px; border-radius: var(--es-r-btn); font-weight: 700; font-size: 16px;
+        border: none; cursor: pointer; transition: all 0.25s var(--es-ease);
 
-        &.cancel-btn { background: #6c757d; color: white; &:hover { background: #5a6268; } }
+        &.cancel-btn { background: var(--es-hair-soft); color: var(--es-ink-2); &:hover { background: #e7eef7; } }
 
         &.submit-btn {
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;
-          &:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4); }
+          background: var(--es-grad); color: #fff;
+          &:hover { transform: translateY(-1px); box-shadow: 0 10px 22px -8px rgba(25, 137, 250, 0.45); }
         }
       }
     }

@@ -1,28 +1,37 @@
 <template>
   <div class="tag-manage-page">
     <!-- 顶部 -->
-    <div class="page-header">
-      <van-icon name="arrow-left" class="back-btn" @click="$router.back()" />
-      <span class="page-title">我的标签</span>
-      <van-icon name="plus" class="add-btn" @click="openCreateForm" />
-    </div>
+    <header class="page-header">
+      <button type="button" class="nav-btn" aria-label="返回" @click="$router.back()">
+        <van-icon name="arrow-left" />
+      </button>
+      <div class="head-copy">
+        <span class="es-eyebrow">My&nbsp;Tags</span>
+        <h1 class="es-title">我的<span class="accent">标签</span></h1>
+      </div>
+      <button type="button" class="nav-btn add" aria-label="新建标签" @click="openCreateForm">
+        <van-icon name="plus" />
+      </button>
+    </header>
 
     <!-- 加载中 -->
-    <van-loading v-if="loading" size="24px" vertical>加载中...</van-loading>
+    <div v-if="loading" class="loading-wrap">
+      <van-loading size="24px" vertical>加载中...</van-loading>
+    </div>
 
     <!-- 内容 -->
     <div v-else class="content">
       <!-- 系统标签 (普通用户没有编辑/删除按钮即代表不能改, 不再用锁图标+文字额外说明) -->
-      <div v-if="defaultTags.length > 0" class="section">
+      <section v-if="defaultTags.length > 0" class="section">
         <div class="section-header">
-          <span class="section-title">系统标签</span>
+          <span class="es-eyebrow section-title">系统标签</span>
           <span class="section-sub">{{ defaultTags.length }} 个</span>
         </div>
-        <div class="tag-list">
+        <div class="es-card tag-list">
           <div
             v-for="t in defaultTags"
             :key="t.id"
-            class="tag-card"
+            class="tag-card es-hairline-item"
           >
             <span class="tag-pill" :style="{ background: t.style || '#969799' }">{{ t.name }}</span>
             <div v-if="admin" class="card-actions">
@@ -31,24 +40,26 @@
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
       <!-- 用户自定义标签 -->
-      <div class="section">
+      <section class="section">
         <div class="section-header">
-          <span class="section-title">我的标签</span>
+          <span class="es-eyebrow section-title">我的标签</span>
           <span class="section-sub">{{ userTags.length }} 个</span>
         </div>
-        <div v-if="userTags.length === 0" class="empty-block">
-          <van-icon name="label-o" size="36" color="#c8c9cc" />
+        <div v-if="userTags.length === 0" class="es-card empty-block">
+          <span class="empty-icon">
+            <van-icon name="label-o" size="34" color="var(--es-ink-3)" />
+          </span>
           <p>还没有自定义标签</p>
           <van-button round size="small" type="primary" @click="openCreateForm">立即新建</van-button>
         </div>
-        <div v-else class="tag-list">
+        <div v-else class="es-card tag-list">
           <div
             v-for="t in userTags"
             :key="t.id"
-            class="tag-card"
+            class="tag-card es-hairline-item"
           >
             <span class="tag-pill" :style="{ background: t.style || '#1989fa' }">{{ t.name }}</span>
             <div class="card-actions">
@@ -57,7 +68,7 @@
             </div>
           </div>
         </div>
-      </div>
+      </section>
     </div>
 
     <!-- 新建/编辑弹窗 -->
@@ -67,7 +78,9 @@
       :style="{ borderRadius: '16px 16px 0 0' }"
     >
       <div class="form-popup">
+        <div class="form-grabber" aria-hidden="true"></div>
         <div class="form-header">
+          <span class="es-eyebrow form-eyebrow">{{ editingTag ? 'Edit' : 'Create' }}</span>
           <span class="form-title">{{ editingTag ? '编辑标签' : '新建标签' }}</span>
           <van-icon name="cross" class="close-icon" @click="closeForm" />
         </div>
@@ -81,7 +94,10 @@
           />
           <!-- 仅超管新建时显示: 是否系统标签 -->
           <div v-if="admin && !editingTag" class="system-toggle-row">
-            <span class="color-label">系统标签</span>
+            <div class="toggle-copy">
+              <span class="color-label">系统标签</span>
+              <span class="toggle-hint">对全部用户可见</span>
+            </div>
             <van-switch v-model="form.isSystem" size="20px" />
           </div>
           <div class="color-row">
@@ -103,9 +119,9 @@
           </div>
         </div>
         <div class="form-actions">
-          <van-button round @click="closeForm">取消</van-button>
+          <van-button round class="btn-cancel" @click="closeForm">取消</van-button>
           <van-button
-            round type="primary"
+            round type="primary" class="btn-confirm"
             :loading="submitting"
             :disabled="!form.name.trim()"
             @click="submitForm"
@@ -255,177 +271,298 @@ onMounted(loadTags)
 </script>
 
 <style scoped>
+/* ============================================================
+   EDITORIAL — 我的标签 tag CRUD
+   Cool-blue brand, hairline rows on soft white cards,
+   uppercase eyebrow section labels, gradient CTA.
+   ============================================================ */
 .tag-manage-page {
   min-height: 100vh;
-  background: #f8f9fa;
+  /* transparent — let the global cool wash show through */
+  background: transparent;
   padding-bottom: 30px;
+  color: var(--es-ink);
 }
 
+/* ---- header: editorial title, no heavy color bar ---- */
 .page-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 16px 16px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: #fff;
+  gap: 12px;
+  padding: clamp(20px, 5vh, 34px) 20px 14px;
 }
 
-.page-title {
-  font-size: 17px;
-  font-weight: 700;
+.head-copy {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.head-copy .es-eyebrow {
+  letter-spacing: .26em;
+}
+.head-copy .es-title {
+  font-size: 28px;
 }
 
-.back-btn, .add-btn {
-  font-size: 22px;
+.nav-btn {
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--es-hair);
+  background: var(--es-surface);
+  border-radius: 13px;
+  display: grid;
+  place-items: center;
+  color: var(--es-ink-2);
+  font-size: 20px;
   cursor: pointer;
-  padding: 4px;
+  box-shadow: var(--es-shadow-soft);
+  transition: transform .18s var(--es-ease), color .18s var(--es-ease), box-shadow .25s var(--es-ease);
+}
+.nav-btn:active {
+  transform: translateY(1px) scale(.97);
+}
+.nav-btn.add {
+  border-color: transparent;
+  color: #fff;
+  background: var(--es-grad);
+  box-shadow: 0 8px 18px rgba(25, 137, 250, .30), inset 0 1px 0 rgba(255, 255, 255, .36);
+}
+
+.loading-wrap {
+  padding: 60px 0;
+  display: flex;
+  justify-content: center;
 }
 
 .content {
-  padding: 16px;
+  padding: 8px 20px 0;
 }
 
+/* ---- sections ---- */
 .section {
-  margin-bottom: 18px;
+  margin-bottom: 26px;
 }
 
 .section-header {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  margin-bottom: 10px;
+  margin: 0 4px 12px;
 }
 
 .section-title {
-  font-size: 14px;
-  font-weight: 700;
-  color: #1a1a2e;
+  letter-spacing: .2em;
 }
 
 .section-sub {
   font-size: 12px;
-  color: #969799;
+  font-weight: 600;
+  color: var(--es-ink-3);
 }
 
+/* card holds hairline-separated rows */
 .tag-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  padding: 4px 16px;
 }
 
 .tag-card {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #fff;
-  border-radius: 10px;
-  padding: 12px 14px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  gap: 12px;
 }
 
 .tag-pill {
-  display: inline-block;
-  padding: 5px 12px;
-  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 6px 14px;
+  border-radius: 999px;
   color: #fff;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
+  letter-spacing: .01em;
+  line-height: 1.2;
+  box-shadow: 0 4px 12px -4px rgba(20, 30, 50, .35), inset 0 1px 0 rgba(255, 255, 255, .25);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .card-actions {
   display: flex;
-  gap: 16px;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
 }
 
 .action-icon {
   font-size: 18px;
-  color: #646566;
+  color: var(--es-ink-3);
   cursor: pointer;
-  padding: 4px;
-
-  &.danger {
-    color: #ee0a24;
-  }
-}
-
-.empty-block {
-  background: #fff;
+  padding: 7px;
   border-radius: 10px;
-  padding: 30px 20px;
+  transition: background .18s var(--es-ease), color .18s var(--es-ease);
+}
+.action-icon:active {
+  background: var(--es-hair-soft);
+  color: var(--es-ink-2);
+}
+.action-icon.danger {
+  color: #ee0a24;
+}
+.action-icon.danger:active {
+  background: rgba(238, 10, 36, .08);
+}
+
+/* ---- empty state ---- */
+.empty-block {
+  padding: 38px 20px;
   text-align: center;
-  color: #969799;
+  color: var(--es-ink-2);
 }
-
+.empty-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--es-hair-soft);
+  margin-bottom: 14px;
+}
 .empty-block p {
-  margin: 8px 0 14px;
+  margin: 0 0 16px;
   font-size: 13px;
+  color: var(--es-ink-3);
 }
 
-/* 新建/编辑弹窗 */
+/* ============================================================
+   新建/编辑弹窗 — editorial popup form
+   ============================================================ */
 .form-popup {
-  background: #fff;
+  background: var(--es-surface);
   border-radius: 16px 16px 0 0;
   overflow: hidden;
+  padding-bottom: 4px;
+}
+
+.form-grabber {
+  width: 38px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--es-hair);
+  margin: 10px auto 2px;
 }
 
 .form-header {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 16px 20px 8px;
+  gap: 2px;
+  padding: 8px 20px 6px;
   position: relative;
 }
-
-.form-title {
-  font-size: 17px;
-  font-weight: 700;
-  color: #1a1a2e;
+.form-eyebrow {
+  letter-spacing: .26em;
 }
-
+.form-title {
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -.01em;
+  color: var(--es-ink);
+}
 .close-icon {
   position: absolute;
-  right: 20px;
+  top: 8px;
+  right: 16px;
   font-size: 20px;
-  color: #969799;
+  color: var(--es-ink-3);
   cursor: pointer;
+  padding: 6px;
+  border-radius: 10px;
+  transition: background .18s var(--es-ease), color .18s var(--es-ease);
+}
+.close-icon:active {
+  background: var(--es-hair-soft);
+  color: var(--es-ink-2);
 }
 
 .form-body {
-  padding: 8px 20px;
+  padding: 8px 20px 4px;
 }
 
-.color-row {
-  display: flex;
-  align-items: center;
-  padding: 12px 16px;
-  background: #f7f8fa;
-  border-radius: 8px;
-  margin: 12px 0;
+/* name field — borderless hairline */
+.form-body :deep(.van-field) {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--es-hair);
+}
+.form-body :deep(.van-field__label) {
+  font-size: 11px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--es-ink-3);
+  width: auto;
+  margin-right: 14px;
+}
+.form-body :deep(.van-field__control) {
+  font-size: 16px;
+  color: var(--es-ink);
+}
+.form-body :deep(.van-field__control::placeholder) {
+  color: var(--es-ink-3);
 }
 
 .system-toggle-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
-  background: #fffbe6;
-  border: 1px dashed #ffb800;
-  border-radius: 8px;
-  margin: 12px 0;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--es-hair-soft);
+  border-radius: var(--es-r-card);
+  margin: 16px 0;
+}
+.toggle-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.toggle-hint {
+  font-size: 11px;
+  color: var(--es-ink-3);
+}
+.system-toggle-row :deep(.van-switch--on) {
+  background: var(--es-primary);
+}
+
+.color-row {
+  display: flex;
+  align-items: center;
+  padding: 16px;
+  background: var(--es-hair-soft);
+  border-radius: var(--es-r-card);
+  margin: 16px 0;
 }
 
 .color-label {
   font-size: 13px;
-  color: #646566;
-  width: 50px;
+  font-weight: 600;
+  color: var(--es-ink);
+  width: 56px;
   flex-shrink: 0;
 }
 
 .color-picker {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px;
   flex: 1;
+  min-width: 0;
 }
 
 .color-dot {
@@ -434,35 +571,66 @@ onMounted(loadTags)
   border-radius: 50%;
   cursor: pointer;
   border: 2px solid transparent;
-  transition: all 0.2s ease;
-
-  &.active {
-    border-color: #1a1a2e;
-    transform: scale(1.15);
-  }
+  box-shadow: 0 2px 6px -2px rgba(20, 30, 50, .3);
+  transition: transform .2s var(--es-ease), box-shadow .2s var(--es-ease);
+}
+.color-dot.active {
+  border-color: var(--es-surface);
+  transform: scale(1.14);
+  box-shadow: 0 0 0 2px var(--es-primary), 0 4px 10px -2px rgba(20, 30, 50, .35);
 }
 
 .form-preview {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
+  gap: 14px;
+  padding: 12px 4px 4px;
 }
 
 .preview-label {
-  font-size: 13px;
-  color: #646566;
-  width: 50px;
+  font-size: 11px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--es-ink-3);
+  width: 56px;
   flex-shrink: 0;
 }
 
 .form-actions {
   display: flex;
-  gap: 10px;
-  padding: 12px 20px 24px;
+  gap: 12px;
+  padding: 14px 20px 24px;
 }
 
-.form-actions .van-button {
+.form-actions :deep(.van-button) {
   flex: 1;
+  height: 46px;
+  font-weight: 700;
+  letter-spacing: .06em;
+}
+
+/* secondary (cancel) — hairline ghost */
+.form-actions :deep(.btn-cancel) {
+  background: var(--es-surface);
+  border: 1px solid var(--es-hair);
+  color: var(--es-ink-2);
+}
+
+/* primary (create/save) — brand gradient */
+.form-actions :deep(.btn-confirm) {
+  border: 0;
+  color: #fff;
+  background: var(--es-grad);
+  box-shadow: 0 10px 22px -8px rgba(25, 137, 250, .55), inset 0 1px 0 rgba(255, 255, 255, .36);
+}
+.form-actions :deep(.btn-confirm.van-button--disabled) {
+  opacity: .5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-btn, .action-icon, .color-dot, .close-icon {
+    transition: none;
+  }
 }
 </style>

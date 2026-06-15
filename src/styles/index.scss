@@ -1,5 +1,47 @@
 @import './variables.scss';
 
+/* ============================================================
+   Editorial design system — global tokens (--es-*)
+   Carries the login page's premium language app-wide.
+   Usable in BOTH global and scoped styles (CSS custom props).
+   ============================================================ */
+:root {
+  // brand
+  --es-primary: #1989fa;
+  --es-grad-a: #3DA5F4;
+  --es-grad-b: #5BC8EA;
+  --es-teal: #22B8D6;
+  --es-grad: linear-gradient(118deg, #3DA5F4 0%, #1989fa 56%, #22B8D6 130%);
+
+  // ink
+  --es-ink: #1F2937;
+  --es-ink-2: #6B7280;
+  --es-ink-3: #9AA3AF;
+
+  // surfaces / lines
+  --es-surface: #FFFFFF;
+  --es-hair: #E6ECF5;
+  --es-hair-soft: #EEF3FA;
+
+  // the near-white editorial page wash (one faint cool tint top-right + bottom-left)
+  --es-wash:
+    radial-gradient(120% 80% at 88% -8%, rgba(91, 200, 234, .16) 0%, rgba(91, 200, 234, 0) 46%),
+    radial-gradient(120% 90% at 8% 108%, rgba(25, 137, 250, .10) 0%, rgba(25, 137, 250, 0) 50%),
+    linear-gradient(180deg, #FBFDFF 0%, #F2F6FC 100%);
+
+  // shape / motion
+  --es-r-card: 18px;
+  --es-r-btn: 14px;
+  --es-ease: cubic-bezier(.22, .61, .36, 1);
+  --es-shadow-card: 0 18px 40px -22px rgba(20, 30, 50, .18), 0 1px 0 rgba(20, 30, 50, .03);
+  --es-shadow-soft: 0 10px 26px -14px rgba(20, 30, 50, .16);
+
+  // Vant 4 theme alignment (loaded after vant css → wins)
+  --van-primary-color: #1989fa;
+  --van-radius-md: 10px;
+  --van-radius-lg: 14px;
+}
+
 // 全局重置样式
 * {
   margin: 0;
@@ -12,7 +54,7 @@ html, body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
   font-size: $font-size-md;
   color: $text-color;
-  background-color: $background-color;
+  background-color: #F2F6FC;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   -webkit-tap-highlight-color: transparent;
@@ -127,7 +169,7 @@ html, body {
 // 页面容器
 .page-container {
   min-height: 100vh;
-  background-color: $background-color;
+  background: transparent;
   padding: $padding-lg;
 }
 
@@ -143,7 +185,7 @@ html, body {
   .van-field {
     margin-bottom: $padding-md;
   }
-  
+
   .form-title {
     font-size: $font-size-xxl;
     font-weight: bold;
@@ -151,16 +193,16 @@ html, body {
     text-align: center;
     margin-bottom: $padding-xxl;
   }
-  
+
   .form-footer {
     margin-top: $padding-xl;
     text-align: center;
-    
+
     .link-text {
       color: $primary-color;
       text-decoration: none;
       font-size: $font-size-sm;
-      
+
       &:hover {
         text-decoration: underline;
       }
@@ -194,4 +236,98 @@ html, body {
   height: 40px;
   border-radius: 50%;
   object-fit: cover;
+}
+
+/* ============================================================
+   Editorial primitives — opt-in classes (use --es-* tokens)
+   Pages apply these for a consistent premium look.
+   ============================================================ */
+// full-height page on the cool wash
+.es-page {
+  min-height: 100vh;
+  background: var(--es-wash);
+}
+
+// soft white card
+.es-card {
+  background: var(--es-surface);
+  border-radius: var(--es-r-card);
+  box-shadow: var(--es-shadow-card);
+  padding: 18px;
+  box-sizing: border-box;
+}
+
+// uppercase micro-label (the editorial eyebrow)
+.es-eyebrow {
+  font-size: 11px;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--es-ink-3);
+}
+
+// oversized confident title with optional gradient accent span
+.es-title {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -.01em;
+  color: var(--es-ink);
+  line-height: 1.15;
+}
+.es-title .accent {
+  background: linear-gradient(120deg, var(--es-primary), var(--es-grad-b));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+// hairline-separated list rows (no heavy boxes)
+.es-hairline-item {
+  padding: 16px 4px;
+}
+.es-hairline-item + .es-hairline-item {
+  border-top: 1px solid var(--es-hair);
+}
+
+// primary gradient button with slow shimmer (mirrors the login CTA)
+.es-btn-primary {
+  position: relative;
+  width: 100%;
+  border: 0;
+  cursor: pointer;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  color: #fff;
+  padding: 16px 24px;
+  border-radius: 15px;
+  overflow: hidden;
+  background: linear-gradient(118deg, var(--es-grad-a) 0%, var(--es-primary) 56%, var(--es-teal) 130%);
+  background-size: 180% 180%;
+  box-shadow: 0 10px 24px rgba(25, 137, 250, .32), inset 0 1px 0 rgba(255, 255, 255, .36);
+  animation: esGradShift 9s ease-in-out infinite;
+}
+.es-btn-primary:active {
+  transform: translateY(1px) scale(.992);
+}
+@keyframes esGradShift {
+  0%, 100% { background-position: 0% 50%; }
+  50%      { background-position: 100% 50%; }
+}
+
+// soft accent pill / tag
+.es-pill {
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--es-primary);
+  background: rgba(25, 137, 250, .10);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .es-btn-primary { animation: none; }
 }

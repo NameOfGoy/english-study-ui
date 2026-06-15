@@ -108,7 +108,7 @@ const handleSubmit = () => {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
 
   .modal-header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--es-grad);
     padding: 20px;
     display: flex;
     justify-content: space-between;
@@ -168,9 +168,9 @@ const handleSubmit = () => {
       }
 
       &.submit-btn {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: var(--es-grad);
         border: none; color: white; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1); transition: all 0.3s ease;
-        &:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3); }
+        &:hover:not(:disabled) { opacity: 0.92; transform: translateY(-1px); box-shadow: 0 8px 18px -6px rgba(25, 137, 250, 0.45); }
         &:disabled {
           background: linear-gradient(135deg, #bdc3c7 0%, #95a5a6 100%) !important;
           color: #7f8c8d !important; text-shadow: none !important; opacity: 1 !important;

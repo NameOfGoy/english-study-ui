@@ -172,6 +172,19 @@ export function getWordTagList(word_id, word_type) {
   })
 }
 
+// 按标签筛选词语(AND: 同时拥有全部所选标签). 服务端实时查询, 数据始终最新.
+// params: { tag_ids: number[], word_type: 1|2 }
+export function listWordsByTags(params) {
+  return request({
+    url: '/v1/dictionary/tag/words',
+    method: 'get',
+    params,
+    paramsSerializer: {
+      indexes: null
+    }
+  })
+}
+
 // 修改单词标签
 export function updateWordTag(data) {
   const payload = { ...data }
