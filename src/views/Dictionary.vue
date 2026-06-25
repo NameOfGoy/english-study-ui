@@ -1,39 +1,58 @@
 <template>
   <div class="dictionary-page" @touchstart="handleTouchStart" @touchend="handleTouchEnd">
-    <!-- 头部 -->
+    <!-- 头部 — 压缩成一条简短的品牌标题条 -->
     <div class="dictionary-header">
       <div class="header-glow" aria-hidden="true"></div>
-      <div class="header-content">
-        <div class="header-text">
-          <span class="page-eyebrow">English&nbsp;Study · Dictionary</span>
-          <h1 class="page-title">英语<span class="accent">词典</span></h1>
-          <p class="page-subtitle"><span class="rule" aria-hidden="true"></span>学习及查找词语</p>
+      <div class="header-bar">
+        <span class="page-eyebrow">English&nbsp;Study</span>
+        <h1 class="page-title">英语<span class="accent">词典</span></h1>
+      </div>
+    </div>
+
+    <!-- 常显搜索栏 + 视图下划线 Tab (仅列表页显示, 进入详情后隐藏) -->
+    <div v-if="!selectedWord && !selectedPhrase" class="dictionary-toolbar">
+      <!-- 搜索栏: 左侧嵌 词/短语 切换, 右侧前缀搜索框 -->
+      <div class="search-bar">
+        <div
+          class="resource-toggle"
+          :class="{ phrase: resourceType === 'phrase' }"
+          @click="toggleResourceType"
+        >
+          <span class="rt-label">{{ resourceType === 'phrase' ? '短语' : '词' }}</span>
+          <van-icon name="arrow-down" class="rt-caret" />
         </div>
-        <!-- 显示模式切换栏 -->
-        <div class="display-mode-switcher">
+        <div class="search-field">
+          <van-icon name="search" class="sf-icon" />
+          <input
+            v-model="keyword"
+            class="sf-input"
+            type="search"
+            :placeholder="resourceType === 'phrase' ? '搜索短语' : '搜索单词'"
+            @input="onKeywordInput"
+          />
+          <van-icon v-if="keyword" name="clear" class="sf-clear" @click="clearKeyword" />
+        </div>
+      </div>
+
+      <!-- 视图下划线 Tab + 多选入口 -->
+      <div class="view-tabs">
+        <div class="view-tabs-track">
           <div
             v-for="mode in displayModes"
             :key="mode.value"
-            class="mode-option"
+            class="view-tab"
             :class="{ active: currentDisplayMode === mode.value }"
             @click="switchDisplayMode(mode.value)"
           >
-            {{ mode.label }}
+            <span class="vt-label">{{ mode.label }}</span>
+            <span class="vt-underline" aria-hidden="true"></span>
           </div>
         </div>
-        <!-- 右侧书签切换：单词 / 短语 (仅在列表页显示，进入详情后隐藏) -->
-        <div v-if="!selectedWord && !selectedPhrase" class="resource-switcher">
-          <div
-            class="bookmark-option"
-            :class="{ active: resourceType === 'word' }"
-            @click="switchResourceType('word')"
-          >单词</div>
-          <div
-            class="bookmark-option"
-            :class="{ active: resourceType === 'phrase' }"
-            @click="switchResourceType('phrase')"
-          >短语</div>
-        </div>
+        <div
+          class="select-toggle"
+          :class="{ active: selectMode }"
+          @click="toggleSelectMode"
+        >{{ selectMode ? '取消' : '多选' }}</div>
       </div>
     </div>
 
@@ -50,8 +69,8 @@
         <!-- 资源列表（按字母分类） -->
         <div v-if="!selectedWord && !selectedPhrase" key="resource-list" class="alphabetical-word-list" ref="scrollContainer">
 
-        <!-- 标签模式: 多标签筛选(同时拥有所选全部标签的词语) -->
-        <div v-if="currentDisplayMode === 'tag'" class="tag-filter-panel">
+        <!-- 标签模式: 多标签筛选(同时拥有所选全部标签的词语). 搜索态下隐藏, 避免两套筛选冲突 -->
+        <div v-if="currentDisplayMode === 'tag' && !hasKeyword" class="tag-filter-panel">
           <div class="tfp-header" @click="showTagFilter = !showTagFilter">
             <span class="tfp-title">
               <van-icon name="filter-o" /> 按标签筛选
@@ -76,119 +95,257 @@
               {{ currentLetter.toUpperCase() }}
             </div>
             <!-- 列表模式：根据书签展示单词或短语 -->
-            <van-cell
+            <van-swipe-cell
               v-if="resourceType === 'word' && currentDisplayMode === 'word'"
-              v-for="word in wordsByLetter[currentLetter]"
+              v-for="word in (displayWordsByLetter[currentLetter] || [])"
               :key="word.id"
-              :title="word.word"
-              is-link
-              @click="selectWord(word.id)"
-              class="word-item"
-            />
-            <van-cell
-              v-else-if="resourceType === 'phrase' && currentDisplayMode === 'word'"
-              v-for="item in (phrasesByLetter[currentLetter] || [])"
-              :key="item.id"
-              :title="item.word"
-              is-link
-              @click="selectPhrase(item.id)"
-              class="word-item phrase-mode"
+              :ref="el => registerSwipeRef(word.id, el)"
+              class="swipe-cell"
+              :disabled="selectMode"
+              @open="onSwipeOpen(word.id)"
+              @close="onSwipeClose(word.id)"
             >
-              <template #label>
-                <div class="phrase-subtitle">
+              <div class="swipe-cell-body">
+                <van-checkbox
+                  v-if="selectMode"
+                  class="row-checkbox"
+                  :model-value="selectedIds.has(word.id)"
+                  @click.stop="toggleItemSelect(word.id)"
+                />
+                <van-cell
+                  :title="word.word"
+                  :is-link="!selectMode"
+                  @click="onRowClick(word)"
+                  class="word-item"
+                />
+              </div>
+              <template #right>
+                <div class="row-actions">
+                  <button type="button" class="ra-btn ra-status" @click="onActionStatus(word)">状态</button>
+                  <button type="button" class="ra-btn ra-tag" @click="onActionTag(word)">标签</button>
+                  <button type="button" class="ra-btn ra-delete" @click="onActionDelete(word)">删除</button>
                 </div>
               </template>
-            </van-cell>
+            </van-swipe-cell>
+            <van-swipe-cell
+              v-else-if="resourceType === 'phrase' && currentDisplayMode === 'word'"
+              v-for="item in (displayPhrasesByLetter[currentLetter] || [])"
+              :key="item.id"
+              :ref="el => registerSwipeRef(item.id, el)"
+              class="swipe-cell"
+              :disabled="selectMode"
+              @open="onSwipeOpen(item.id)"
+              @close="onSwipeClose(item.id)"
+            >
+              <div class="swipe-cell-body">
+                <van-checkbox
+                  v-if="selectMode"
+                  class="row-checkbox"
+                  :model-value="selectedIds.has(item.id)"
+                  @click.stop="toggleItemSelect(item.id)"
+                />
+                <van-cell
+                  :title="item.word"
+                  :is-link="!selectMode"
+                  @click="onRowClick(item)"
+                  class="word-item phrase-mode"
+                >
+                  <template #label>
+                    <div class="phrase-subtitle">
+                    </div>
+                  </template>
+                </van-cell>
+              </div>
+              <template #right>
+                <div class="row-actions">
+                  <button type="button" class="ra-btn ra-status" @click="onActionStatus(item)">状态</button>
+                  <button type="button" class="ra-btn ra-tag" @click="onActionTag(item)">标签</button>
+                  <button type="button" class="ra-btn ra-delete" @click="onActionDelete(item)">删除</button>
+                </div>
+              </template>
+            </van-swipe-cell>
 
             <!-- 状态模式：单词 -->
-            <van-cell
+            <van-swipe-cell
               v-if="currentDisplayMode === 'status' && resourceType === 'word'"
               v-for="word in getFilteredWordsForStatus(currentLetter)"
               :key="word.id"
-              :title="word.word"
-              @click="openStatusModal(word)"
-              class="word-item status-mode clickable"
+              :ref="el => registerSwipeRef(word.id, el)"
+              class="swipe-cell"
+              :disabled="selectMode"
+              @open="onSwipeOpen(word.id)"
+              @close="onSwipeClose(word.id)"
             >
-              <template #value>
-                <div class="status-indicator" :class="getStatusClass(word.status)" v-if="word.status > 0">
-                  <span class="status-dot"></span>
-                  <span class="status-text">{{ getStatusText(word.status) }}</span>
+              <div class="swipe-cell-body">
+                <van-checkbox
+                  v-if="selectMode"
+                  class="row-checkbox"
+                  :model-value="selectedIds.has(word.id)"
+                  @click.stop="toggleItemSelect(word.id)"
+                />
+                <van-cell
+                  :title="word.word"
+                  :is-link="!selectMode"
+                  @click="onRowClick(word)"
+                  class="word-item status-mode"
+                >
+                  <template #value>
+                    <div class="status-indicator" :class="getStatusClass(word.status)" v-if="word.status > 0">
+                      <span class="status-dot"></span>
+                      <span class="status-text">{{ getStatusText(word.status) }}</span>
+                    </div>
+                  </template>
+                </van-cell>
+              </div>
+              <template #right>
+                <div class="row-actions">
+                  <button type="button" class="ra-btn ra-status" @click="onActionStatus(word)">状态</button>
+                  <button type="button" class="ra-btn ra-tag" @click="onActionTag(word)">标签</button>
+                  <button type="button" class="ra-btn ra-delete" @click="onActionDelete(word)">删除</button>
                 </div>
               </template>
-            </van-cell>
+            </van-swipe-cell>
 
             <!-- 状态模式：短语 -->
-            <van-cell
+            <van-swipe-cell
               v-else-if="currentDisplayMode === 'status' && resourceType === 'phrase'"
               v-for="item in getFilteredPhrasesForStatus(currentLetter)"
               :key="item.id"
-              :title="item.word"
-              is-link
-              clickable
-              @click="openStatusModal(item)"
-              class="word-item status-mode clickable phrase-mode"
+              :ref="el => registerSwipeRef(item.id, el)"
+              class="swipe-cell"
+              :disabled="selectMode"
+              @open="onSwipeOpen(item.id)"
+              @close="onSwipeClose(item.id)"
             >
-              <template #label>
-                <div class="phrase-subtitle">
+              <div class="swipe-cell-body">
+                <van-checkbox
+                  v-if="selectMode"
+                  class="row-checkbox"
+                  :model-value="selectedIds.has(item.id)"
+                  @click.stop="toggleItemSelect(item.id)"
+                />
+                <van-cell
+                  :title="item.word"
+                  :is-link="!selectMode"
+                  @click="onRowClick(item)"
+                  class="word-item status-mode phrase-mode"
+                >
+                  <template #label>
+                    <div class="phrase-subtitle">
+                    </div>
+                  </template>
+                  <template #value>
+                    <div class="status-indicator" :class="getStatusClass(item.status)" v-if="item.status > 0">
+                      <span class="status-dot"></span>
+                      <span class="status-text">{{ getStatusText(item.status) }}</span>
+                    </div>
+                  </template>
+                </van-cell>
+              </div>
+              <template #right>
+                <div class="row-actions">
+                  <button type="button" class="ra-btn ra-status" @click="onActionStatus(item)">状态</button>
+                  <button type="button" class="ra-btn ra-tag" @click="onActionTag(item)">标签</button>
+                  <button type="button" class="ra-btn ra-delete" @click="onActionDelete(item)">删除</button>
                 </div>
               </template>
-              <template #value>
-                <div class="status-indicator" :class="getStatusClass(item.status)" v-if="item.status > 0">
-                  <span class="status-dot"></span>
-                  <span class="status-text">{{ getStatusText(item.status) }}</span>
-                </div>
-              </template>
-            </van-cell>
+            </van-swipe-cell>
 
             <!-- 标签模式：单词. 直接遍历 wordsByLetter (associate 已把 tags 挂到每条 word 上) -->
-            <van-cell
+            <van-swipe-cell
               v-else-if="currentDisplayMode === 'tag' && resourceType === 'word'"
               v-for="word in (displayWordsByLetter[currentLetter] || [])"
               :key="word.id"
-              :title="word.word"
-              is-link
-              @click="openTagModal(word)"
-              class="word-item tag-mode"
+              :ref="el => registerSwipeRef(word.id, el)"
+              class="swipe-cell"
+              :disabled="selectMode"
+              @open="onSwipeOpen(word.id)"
+              @close="onSwipeClose(word.id)"
             >
-              <template #label>
-                <div class="word-tags">
-                  <span
-                    v-for="tag in word.tags || []"
-                    :key="tag.id"
-                    class="tag-item"
-                    :style="{ backgroundColor: tag.style || tag.color || '#1989fa' }"
-                  >
-                    {{ tag.name }}
-                  </span>
-                  <span v-if="!word.tags || word.tags.length === 0" class="no-tags">暂无标签</span>
+              <div class="swipe-cell-body">
+                <van-checkbox
+                  v-if="selectMode"
+                  class="row-checkbox"
+                  :model-value="selectedIds.has(word.id)"
+                  @click.stop="toggleItemSelect(word.id)"
+                />
+                <van-cell
+                  :title="word.word"
+                  :is-link="!selectMode"
+                  @click="onRowClick(word)"
+                  class="word-item tag-mode"
+                >
+                  <template #label>
+                    <div class="word-tags">
+                      <span
+                        v-for="tag in word.tags || []"
+                        :key="tag.id"
+                        class="tag-item"
+                        :style="{ backgroundColor: tag.style || tag.color || '#1989fa' }"
+                      >
+                        {{ tag.name }}
+                      </span>
+                      <span v-if="!word.tags || word.tags.length === 0" class="no-tags">暂无标签</span>
+                    </div>
+                  </template>
+                </van-cell>
+              </div>
+              <template #right>
+                <div class="row-actions">
+                  <button type="button" class="ra-btn ra-status" @click="onActionStatus(word)">状态</button>
+                  <button type="button" class="ra-btn ra-tag" @click="onActionTag(word)">标签</button>
+                  <button type="button" class="ra-btn ra-delete" @click="onActionDelete(word)">删除</button>
                 </div>
               </template>
-            </van-cell>
+            </van-swipe-cell>
 
             <!-- 标签模式：短语 -->
-            <van-cell
+            <van-swipe-cell
               v-else-if="currentDisplayMode === 'tag' && resourceType === 'phrase'"
               v-for="item in (displayPhrasesByLetter[currentLetter] || [])"
               :key="item.id"
-              :title="item.word"
-              is-link
-              @click="openTagModal(item)"
-              class="word-item tag-mode phrase-mode"
+              :ref="el => registerSwipeRef(item.id, el)"
+              class="swipe-cell"
+              :disabled="selectMode"
+              @open="onSwipeOpen(item.id)"
+              @close="onSwipeClose(item.id)"
             >
-              <template #label>
-                <div class="word-tags">
-                  <span
-                    v-for="tag in item.tags || []"
-                    :key="tag.id"
-                    class="tag-item"
-                    :style="{ backgroundColor: tag.style || tag.color || '#1989fa' }"
-                  >
-                    {{ tag.name }}
-                  </span>
-                  <span v-if="!item.tags || item.tags.length === 0" class="no-tags">暂无标签</span>
+              <div class="swipe-cell-body">
+                <van-checkbox
+                  v-if="selectMode"
+                  class="row-checkbox"
+                  :model-value="selectedIds.has(item.id)"
+                  @click.stop="toggleItemSelect(item.id)"
+                />
+                <van-cell
+                  :title="item.word"
+                  :is-link="!selectMode"
+                  @click="onRowClick(item)"
+                  class="word-item tag-mode phrase-mode"
+                >
+                  <template #label>
+                    <div class="word-tags">
+                      <span
+                        v-for="tag in item.tags || []"
+                        :key="tag.id"
+                        class="tag-item"
+                        :style="{ backgroundColor: tag.style || tag.color || '#1989fa' }"
+                      >
+                        {{ tag.name }}
+                      </span>
+                      <span v-if="!item.tags || item.tags.length === 0" class="no-tags">暂无标签</span>
+                    </div>
+                  </template>
+                </van-cell>
+              </div>
+              <template #right>
+                <div class="row-actions">
+                  <button type="button" class="ra-btn ra-status" @click="onActionStatus(item)">状态</button>
+                  <button type="button" class="ra-btn ra-tag" @click="onActionTag(item)">标签</button>
+                  <button type="button" class="ra-btn ra-delete" @click="onActionDelete(item)">删除</button>
                 </div>
               </template>
-            </van-cell>
+            </van-swipe-cell>
 
           </div>
         </div>
@@ -202,6 +359,15 @@
         <van-empty
           v-if="currentDisplayMode === 'tag' && selectedFilterTags.length > 0 && !filterLoading && filteredCount === 0"
           description="没有同时拥有这些标签的词语"
+        />
+
+        <!-- 搜索中 / 搜索无结果 -->
+        <div v-if="hasKeyword && searchLoading" class="global-loading">
+          <van-loading size="20px" vertical>搜索中...</van-loading>
+        </div>
+        <van-empty
+          v-else-if="hasKeyword && !searchLoading && lettersToLoop.length === 0"
+          :description="resourceType === 'phrase' ? '没有匹配的短语' : '没有匹配的单词'"
         />
 
         <!-- 加载更多状态 -->
@@ -225,11 +391,11 @@
           <van-loading size="20px" vertical>加载短语数据...</van-loading>
         </div>
 
-          <!-- 已加载完毕提示 -->
-          <div v-if="!hasMoreWords && allWords.length > 0 && currentDisplayMode === 'word'" class="load-complete">
+          <!-- 已加载完毕提示 (搜索态下隐藏, 结果集已是完整匹配) -->
+          <div v-if="!hasKeyword && !hasMoreWords && allWords.length > 0 && currentDisplayMode === 'word'" class="load-complete">
             <van-divider>已加载全部单词</van-divider>
           </div>
-          <div v-if="!hasMorePhrases && phraseList.length > 0 && currentDisplayMode === 'phrase'" class="load-complete">
+          <div v-if="!hasKeyword && !hasMorePhrases && phraseList.length > 0 && currentDisplayMode === 'phrase'" class="load-complete">
             <van-divider>已加载全部短语</van-divider>
           </div>
         </div>
@@ -293,8 +459,6 @@
       @confirm="confirmCrop"
     />
 
-    <SearchModal :show="showSearchModal" :type="resourceType" @close="closeSearchModal" @select="selectSearchResult" />
-
     <SearchAddModal
       :show="showSearchAddModal"
       @close="showSearchAddModal = false"
@@ -316,9 +480,6 @@
     <!-- 浮动按钮 -->
     <div v-if="!selectedWord && !selectedPhrase && currentDisplayMode === 'word'" class="add-word-fab" @click="showActionSheet = true">
       <van-icon name="plus" size="24" />
-    </div>
-    <div v-if="!selectedWord && !selectedPhrase && currentDisplayMode === 'word'" class="search-fab" @click="openSearchModal">
-      <van-icon name="search" size="22" />
     </div>
 
     <!-- A-Z 首字母快速跳转条 (列表视图显示, 点击跳到对应字母) -->
@@ -390,13 +551,29 @@
       @delete="deletePhrase"
       @select-image="selectPhraseImage"
     />
+
+    <!-- 多选模式底部操作条 (浮在 tabbar 之上) -->
+    <transition name="select-bar-slide">
+      <div v-if="selectMode" class="select-action-bar">
+        <div class="sab-left" @click="toggleSelectAll">
+          <van-checkbox :model-value="allVisibleSelected" />
+          <span class="sab-all-text">{{ allVisibleSelected ? '取消全选' : '全选' }}</span>
+        </div>
+        <div class="sab-count">已选 {{ selectedCount }}</div>
+        <div
+          class="sab-delete"
+          :class="{ disabled: selectedCount === 0 || batchDeleting }"
+          @click="confirmBatchDelete"
+        >{{ batchDeleting ? '删除中...' : '删除' }}</div>
+      </div>
+    </transition>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted, onBeforeUnmount, nextTick, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { getWordList, getWordDetail, generateWordPicture, updateWordPicture, addWord, deleteWord, getWordStatusList, updateWordStatus, getWordTagList, updateWordTag, getWordPhraseList, getWordPhraseDetail, addWordPhrase, updateWordPhrase, deleteWordPhrase, generatePhrasePicture, updatePhrasePicture, importWord, listWordsByTags } from '@/api/dictionary'
+import { getWordList, getWordDetail, generateWordPicture, updateWordPicture, addWord, deleteWord, batchDeleteWord, getWordStatusList, updateWordStatus, getWordTagList, updateWordTag, getWordPhraseList, getWordPhraseDetail, addWordPhrase, updateWordPhrase, deleteWordPhrase, batchDeleteWordPhrase, generatePhrasePicture, updatePhrasePicture, importWord, listWordsByTags } from '@/api/dictionary'
 import { getTagList } from '@/api/tag'
 import { uploadFile, selectFiles } from '@/api/file'
 import { getUserInfo, getUserId, getToken } from '@/utils/auth'
@@ -404,7 +581,6 @@ import { getResourceUrl } from '@/utils/request'
 import { showToast, closeToast, showConfirmDialog } from 'vant'
 
 // Sub-components
-import SearchModal from '@/components/dictionary/SearchModal.vue'
 import SearchAddModal from '@/components/dictionary/SearchAddModal.vue'
 import ShareGenerateModal from '@/components/dictionary/ShareGenerateModal.vue'
 import ShareImportModal from '@/components/dictionary/ShareImportModal.vue'
@@ -446,10 +622,167 @@ const currentActiveLetter = ref('')
 const resourceType = ref(props.defaultType || 'word')
 const currentDisplayMode = ref('word')
 const displayModes = computed(() => ([
-  { label: resourceType.value === 'word' ? '单词' : '短语', value: 'word' },
+  // value:'word' 是"按字母列表"视图; 标签固定叫"列表", 避免与搜索栏的 词/短语 切换重名
+  { label: '列表', value: 'word' },
   { label: '状态', value: 'status' },
   { label: '标签', value: 'tag' }
 ]))
+
+// ========== 就地搜索 (搜索栏前缀筛列表) ==========
+// keyword 非空时, 按前缀就地筛当前列表, 复用现有"按字母分组渲染"。
+// 单词列表已全量在内存(loadWords 拉 limit 100000), 直接前端前缀过滤即可、且完整;
+// 短语列表是分页加载的, 仅前几页在内存, 故走后端 phrase_prefix 拉全部匹配, 保证不漏。
+const keyword = ref('')
+// 已防抖确认、用于实际过滤的关键词(input 即时绑 keyword, 防抖后再写入 activeKeyword 触发筛选)
+const activeKeyword = ref('')
+const searchPhraseResults = ref([])  // 短语前缀结果 (后端 phrase_prefix 拉取)
+const searchLoading = ref(false)
+let keywordDebounceTimer = null
+let phraseSearchSeq = 0              // 短语异步搜索竞态序号, 仅采用最后一次
+
+const hasKeyword = computed(() => activeKeyword.value.trim().length > 0)
+
+// 单词列表全量在内存, 直接前缀过滤即可; 用 computed 保证 allWords 关联状态/标签后结果同步更新
+const searchWordResults = computed(() => {
+  const kw = activeKeyword.value.trim().toLowerCase()
+  if (!kw) return []
+  return allWords.value.filter(w => (w.word || '').toLowerCase().startsWith(kw))
+})
+
+const runPhraseSearch = async (kw) => {
+  if (!kw) { searchPhraseResults.value = []; return }
+  const seq = ++phraseSearchSeq
+  try {
+    searchLoading.value = true
+    const resp = await getWordPhraseList({ phrase_prefix: kw, limit: 100000 })
+    if (seq !== phraseSearchSeq) return // 已有更新的搜索, 丢弃旧结果
+    searchPhraseResults.value = (resp && resp.code === 0) ? (resp.data || []) : []
+  } catch (e) {
+    if (seq === phraseSearchSeq) searchPhraseResults.value = []
+  } finally {
+    if (seq === phraseSearchSeq) searchLoading.value = false
+  }
+}
+
+// 防抖后真正执行: 写入 activeKeyword(驱动单词 computed 过滤), 并按需拉短语前缀结果
+const runSearch = () => {
+  const kw = keyword.value.trim()
+  activeKeyword.value = kw
+  if (resourceType.value === 'phrase') runPhraseSearch(kw)
+}
+
+const onKeywordInput = () => {
+  if (keywordDebounceTimer) clearTimeout(keywordDebounceTimer)
+  // 多选/已展开左滑行与搜索互斥: 输入即收起
+  if (selectMode.value) clearSelection()
+  closeAllRows()
+  keywordDebounceTimer = setTimeout(runSearch, 300)
+}
+
+const clearKeyword = () => {
+  if (keywordDebounceTimer) { clearTimeout(keywordDebounceTimer); keywordDebounceTimer = null }
+  keyword.value = ''
+  activeKeyword.value = ''
+  searchPhraseResults.value = []
+  searchLoading.value = false
+}
+
+// ========== 多选批量删除 ==========
+// selectMode 下: 禁用页面横滑切视图 / 行长按左滑 / 点击进详情; 改为点行勾选, 底部操作条统一删除。
+const selectMode = ref(false)
+// 当前 resourceType 下被勾选的 id 集合。切 resourceType/displayMode/搜索/筛选时必须清空(尤其切 resourceType, 防单词/短语 id 串)。
+const selectedIds = ref(new Set())
+const selectedCount = computed(() => selectedIds.value.size)
+const batchDeleting = ref(false)
+
+// 当前视图(列表/状态/标签 × 单词/短语)实际渲染出来的全部条目, 供"全选"用。
+const visibleItems = computed(() => {
+  const out = []
+  for (const letter of lettersToLoop.value) {
+    let rows = []
+    if (currentDisplayMode.value === 'tag') {
+      rows = resourceType.value === 'word'
+        ? (displayWordsByLetter.value[letter] || [])
+        : (displayPhrasesByLetter.value[letter] || [])
+    } else if (currentDisplayMode.value === 'status') {
+      rows = resourceType.value === 'word'
+        ? getFilteredWordsForStatus(letter)
+        : getFilteredPhrasesForStatus(letter)
+    } else {
+      rows = resourceType.value === 'word'
+        ? (displayWordsByLetter.value[letter] || [])
+        : (displayPhrasesByLetter.value[letter] || [])
+    }
+    for (const r of rows) out.push(r)
+  }
+  return out
+})
+const allVisibleSelected = computed(() =>
+  visibleItems.value.length > 0 && visibleItems.value.every(it => selectedIds.value.has(it.id))
+)
+
+const clearSelection = () => {
+  selectedIds.value = new Set()
+}
+const exitSelectMode = () => {
+  selectMode.value = false
+  clearSelection()
+}
+const enterSelectMode = () => {
+  // 进入多选前先收掉任何已展开的左滑行, 两套交互互斥
+  closeAllRows()
+  clearSelection()
+  selectMode.value = true
+}
+const toggleSelectMode = () => {
+  if (selectMode.value) exitSelectMode()
+  else enterSelectMode()
+}
+const toggleItemSelect = (id) => {
+  const next = new Set(selectedIds.value)
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  selectedIds.value = next
+}
+const toggleSelectAll = () => {
+  if (allVisibleSelected.value) {
+    clearSelection()
+  } else {
+    selectedIds.value = new Set(visibleItems.value.map(it => it.id))
+  }
+}
+
+// ========== 行左滑 (van-swipe-cell): 一次只展开一行 ==========
+// 每行的 van-swipe-cell 实例按 id 注册到此 Map, 打开一行时关闭其它行(Vant 默认不互斥)。
+const swipeRefs = new Map()       // { [id]: SwipeCell 组件实例 }
+const openedRowId = ref(null)     // 当前展开露出按钮的行 id(同时只允许一行); 点该行 cell 时先收起不进详情
+
+// :ref 回调: el 为组件实例(挂载)或 null(卸载)。卸载时清理, 避免 Map 残留已删行。
+const registerSwipeRef = (id, el) => {
+  if (el) swipeRefs.set(id, el)
+  else swipeRefs.delete(id)
+}
+
+// 关闭所有已展开的行(切 Tab / 进多选 / 搜索输入 / 点按钮 时调用, 收起任何露出的按钮)。
+const closeAllRows = () => {
+  swipeRefs.forEach(cell => {
+    if (cell && typeof cell.close === 'function') cell.close()
+  })
+  openedRowId.value = null
+}
+
+// 某行被打开时, 关闭其它所有行, 保证一次只展开一行。
+const onSwipeOpen = (openedId) => {
+  swipeRefs.forEach((cell, id) => {
+    if (id !== openedId && cell && typeof cell.close === 'function') cell.close()
+  })
+  openedRowId.value = openedId
+}
+
+// 行收起(滑回 / 点别处)时清掉记录, 让该行 cell 点击恢复"进详情"。
+const onSwipeClose = (closedId) => {
+  if (openedRowId.value === closedId) openedRowId.value = null
+}
 
 // 状态编辑弹窗相关
 const showStatusModal = ref(false)
@@ -533,11 +866,46 @@ const fetchTagFilter = async () => {
 }
 watch([selectedFilterTags, resourceType, currentDisplayMode], fetchTagFilter, { deep: true })
 
+// 切 resourceType/displayMode/标签筛选 时退出多选并清空选择(切 resourceType 必须清, 防 word/phrase id 串)，
+// 同时收掉任何已展开的左滑行。selectedIds 存的是当前 resourceType 下的 id, 一旦上下文变化即作废。
+watch([resourceType, currentDisplayMode], () => {
+  if (selectMode.value) exitSelectMode()
+  closeAllRows()
+})
+watch(selectedFilterTags, () => {
+  if (selectMode.value) clearSelection()
+  closeAllRows()
+}, { deep: true })
+
+// 短语搜索结果来自后端(只有 id/phrase), 这里用内存里已加载的状态/标签快照补齐,
+// 让搜索后的状态/标签视图仍能正确显示 (没快照的就当未设置, 与正常列表一致)。
+const enrichPhrasesWithStatusTags = (phrases) => {
+  const statusMap = {}
+  statusPhrases.value.forEach(item => {
+    const pid = item.word_id ?? item.wordId
+    if (pid != null) statusMap[pid] = Number(item.status ?? item.state ?? 0)
+  })
+  const tagMap = {}
+  tagPhrases.value.forEach(item => {
+    const pid = item.word_id ?? item.wordId
+    if (pid != null) tagMap[pid] = item.tags || []
+  })
+  return phrases.map(p => ({
+    id: p.id,
+    word: p.phrase ?? p.word ?? '',
+    status: statusMap[p.id] !== undefined ? statusMap[p.id] : 0,
+    tags: tagMap[p.id] || []
+  }))
+}
+
+// 词条渲染的唯一数据源(按字母分组)。优先级: 搜索(就地前缀筛) > 标签AND筛选 > 全量列表。
 const displayWordsByLetter = computed(() => {
+  if (hasKeyword.value) return categorizeWordsByLetter(searchWordResults.value)
   if (tagFilterActive.value && resourceType.value === 'word') return categorizeWordsByLetter(filterResults.value)
   return wordsByLetter.value
 })
 const displayPhrasesByLetter = computed(() => {
+  if (hasKeyword.value) return categorizePhrasesByLetter(enrichPhrasesWithStatusTags(searchPhraseResults.value))
   if (tagFilterActive.value && resourceType.value === 'phrase') return categorizePhrasesByLetter(filterResults.value)
   return phrasesByLetter.value
 })
@@ -594,7 +962,6 @@ const addingWord = ref(false)
 const showAddPhraseModal = ref(false)
 const addingPhrase = ref(false)
 
-const showSearchModal = ref(false)
 const showActionSheet = ref(false)
 const showSearchAddModal = ref(false)
 const showShareGenerateModal = ref(false)
@@ -609,13 +976,6 @@ const actionSheetActions = computed(() => {
   ]
   return actions
 })
-const searchQuery = ref('')
-const searchResults = ref([])
-const searching = ref(false)
-let searchDebounceTimer = null
-const searchActive = ref(false)
-const searchType = ref('word')
-
 // 图片上传相关
 const showCropModal = ref(false)
 const selectedImageFile = ref(null)
@@ -743,8 +1103,9 @@ const associateStatusAndTagsToPhrases = () => {
 
 // ========== 过滤方法 ==========
 
+// 从 display 映射取数(搜索生效时即为前缀筛后的结果), 有状态的排前面
 const getFilteredWordsForStatus = (letter) => {
-  const wordsForLetter = wordsByLetter.value[letter] || []
+  const wordsForLetter = displayWordsByLetter.value[letter] || []
   const withStatus = []
   const withoutStatus = []
   for (const w of wordsForLetter) {
@@ -755,7 +1116,7 @@ const getFilteredWordsForStatus = (letter) => {
 }
 
 const getFilteredPhrasesForStatus = (letter) => {
-  const items = phrasesByLetter.value[letter] || []
+  const items = displayPhrasesByLetter.value[letter] || []
   const withStatus = []
   const withoutStatus = []
   items.forEach(item => {
@@ -994,12 +1355,19 @@ const switchDisplayMode = async (mode) => {
 
 const switchResourceType = async (type) => {
   if (resourceType.value === type) return
+  // 切 资源类型(词↔短语) 时清空搜索: 两者前缀语义/数据源不同, 清空最稳妥
+  clearKeyword()
   resourceType.value = type
   selectedWord.value = null
   selectedPhrase.value = null
   transitionName.value = 'list-slide'
   if (type === 'word') router.push('/dictionary/words')
   else router.push('/dictionary/phrases')
+}
+
+// 搜索栏左侧 词/短语 切换: 在 word↔phrase 间 toggle
+const toggleResourceType = () => {
+  switchResourceType(resourceType.value === 'word' ? 'phrase' : 'word')
 }
 
 // ========== 初始化 ==========
@@ -1066,7 +1434,8 @@ const setupScrollListener = () => {
     const scrollHeight = container.scrollHeight
     const clientHeight = container.clientHeight
     const scrollProgress = (scrollTop + clientHeight) / scrollHeight
-    if (scrollProgress > 0.8) {
+    // 搜索态下结果集已完整(单词全量过滤 / 短语后端拉全), 不再触发分页加载更多
+    if (scrollProgress > 0.8 && !hasKeyword.value) {
       if (currentDisplayMode.value === 'word' && resourceType.value === 'word' && hasMoreWords.value && !loadingMore.value) {
         loadMoreWords()
       } else if (currentDisplayMode.value === 'word' && resourceType.value === 'phrase' && hasMorePhrases.value && !loadingMorePhrases.value) {
@@ -1146,10 +1515,6 @@ const selectWord = async (wordId) => {
       selectedWord.value = response.data
       showPictures.value = {}
       preloadWordResources(response.data)
-      if (showSearchModal.value) {
-        searchActive.value = true
-        showSearchModal.value = false
-      }
     } else {
       showToast(response.message || '获取单词详情失败')
     }
@@ -1175,10 +1540,6 @@ const selectPhrase = async (phraseId) => {
         picture: d.picture || ''
       }
       preloadPhraseResources(selectedPhrase.value)
-      if (showSearchModal.value) {
-        searchActive.value = true
-        showSearchModal.value = false
-      }
     } else {
       showToast(resp.message || '获取短语详情失败')
     }
@@ -1207,30 +1568,6 @@ const goBack = () => {
   })
 }
 
-// ========== 搜索 ==========
-
-const openSearchModal = () => {
-  showSearchModal.value = true
-  searchType.value = resourceType.value
-}
-
-const closeSearchModal = () => {
-  showSearchModal.value = false
-  searchActive.value = false
-  if (searchDebounceTimer) {
-    clearTimeout(searchDebounceTimer)
-    searchDebounceTimer = null
-  }
-  searchQuery.value = ''
-  searchResults.value = []
-  searching.value = false
-}
-
-const selectSearchResult = (item) => {
-  if (searchType.value === 'word') selectWord(item.id)
-  else selectPhrase(item.id)
-}
-
 // ========== 过渡钩子 ==========
 
 const handleAfterEnter = (el) => {
@@ -1241,12 +1578,11 @@ const handleAfterEnter = (el) => {
   }
 }
 
-// ========== 滑动手势 ==========
+// ========== 滑动手势 (仅保留: 详情页右滑返回列表) ==========
+// 视图切换改为只点 Tab(switchDisplayMode); 行左滑由 van-swipe-cell 自管, 不再有页面级横滑切视图。
 
 let touchStartX = 0
 let touchStartY = 0
-let touchEndX = 0
-let touchEndY = 0
 
 const handleTouchStart = (e) => {
   touchStartX = e.touches[0].clientX
@@ -1254,43 +1590,17 @@ const handleTouchStart = (e) => {
 }
 
 const handleTouchEnd = (e) => {
-  touchEndX = e.changedTouches[0].clientX
-  touchEndY = e.changedTouches[0].clientY
-  handleSwipeGesture()
-}
-
-const handleSwipeGesture = () => {
-  const deltaX = touchEndX - touchStartX
-  const deltaY = touchEndY - touchStartY
+  // 仅在单词/短语详情页生效: 整页右滑 → 返回列表
+  if (!selectedWord.value && !selectedPhrase.value) return
+  const deltaX = e.changedTouches[0].clientX - touchStartX
+  const deltaY = e.changedTouches[0].clientY - touchStartY
   const minSwipeDistance = 50
-  if (Math.abs(deltaX) > minSwipeDistance && Math.abs(deltaX) > Math.abs(deltaY)) {
-    if (deltaX > 0) handleRightSwipe()
-    else if (deltaX < 0) handleLeftSwipe()
-  }
-}
-
-const handleRightSwipe = () => {
-  if (selectedWord.value || selectedPhrase.value) {
+  if (deltaX > minSwipeDistance && Math.abs(deltaX) > Math.abs(deltaY)) {
     transitionName.value = 'page-slide-right'
     goBack()
-    if (searchActive.value) showSearchModal.value = true
     nextTick(() => {
       if (scrollContainer.value) scrollContainer.value.scrollTop = lastScrollTop.value || 0
     })
-    return
-  }
-  const modes = displayModes.value.map(m => m.value)
-  const currentIndex = modes.indexOf(currentDisplayMode.value)
-  const prevIndex = (currentIndex - 1 + modes.length) % modes.length
-  switchDisplayMode(modes[prevIndex])
-}
-
-const handleLeftSwipe = () => {
-  if (!selectedWord.value && !selectedPhrase.value) {
-    const modes = displayModes.value.map(m => m.value)
-    const currentIndex = modes.indexOf(currentDisplayMode.value)
-    const nextIndex = (currentIndex + 1) % modes.length
-    switchDisplayMode(modes[nextIndex])
   }
 }
 
@@ -1980,12 +2290,8 @@ const confirmDeleteWord = async () => {
     const wordText = selectedWord.value.word
     const resp = await deleteWord(wordId)
     if (resp.code === 0) {
-      // 从内存列表里同步移除, 不必重拉
-      const idx = allWords.value.findIndex(w => w.id === wordId)
-      if (idx !== -1) {
-        allWords.value.splice(idx, 1)
-        wordsByLetter.value = categorizeWordsByLetter(allWords.value)
-      }
+      // 从内存列表里同步移除(含状态/标签快照), 三视图都不再显示, 不必重拉
+      removeWordsFromMemory([wordId])
       showToast(`已删除 "${wordText}"`)
       goBack()
     } else {
@@ -2002,11 +2308,7 @@ const deletePhrase = async () => {
   try {
     const resp = await deleteWordPhrase({ id: phraseForm.id })
     if (resp.code === 0) {
-      const idx = phraseList.value.findIndex(p => p.id === phraseForm.id)
-      if (idx !== -1) {
-        phraseList.value.splice(idx, 1)
-        phrasesByLetter.value = categorizePhrasesByLetter(phraseList.value)
-      }
+      removePhrasesFromMemory([phraseForm.id])
       showToast('短语已删除')
       closePhraseModal()
     } else {
@@ -2016,6 +2318,127 @@ const deletePhrase = async () => {
     console.error('删除短语失败:', err)
     showToast('网络错误，请稍后重试')
   }
+}
+
+// ========== 删除后内存同步 ==========
+// 按 id 集合从内存数据移除并重算分组, 保证三视图(列表/状态/标签)都不再显示已删项。
+// 单词/短语各自的关联数据(status/tag 快照)也一并清理, 避免计数/筛选残留。
+const removeWordsFromMemory = (ids) => {
+  const idSet = ids instanceof Set ? ids : new Set(ids)
+  allWords.value = allWords.value.filter(w => !idSet.has(w.id))
+  statusWords.value = statusWords.value.filter(w => !idSet.has(w.word_id ?? w.wordId))
+  tagWords.value = tagWords.value.filter(w => !idSet.has(w.word_id ?? w.wordId ?? w.id))
+  filterResults.value = filterResults.value.filter(w => !idSet.has(w.id))
+  wordsByLetter.value = categorizeWordsByLetter(allWords.value)
+}
+
+const removePhrasesFromMemory = (ids) => {
+  const idSet = ids instanceof Set ? ids : new Set(ids)
+  phraseList.value = phraseList.value.filter(p => !idSet.has(p.id))
+  statusPhrases.value = statusPhrases.value.filter(p => !idSet.has(p.word_id ?? p.wordId))
+  tagPhrases.value = tagPhrases.value.filter(p => !idSet.has(p.word_id ?? p.wordId ?? p.id))
+  filterResults.value = filterResults.value.filter(p => !idSet.has(p.id))
+  phrasesByLetter.value = categorizePhrasesByLetter(phraseList.value)
+}
+
+// 单行左滑 → 删除按钮: 弹确认后按 resourceType 调单删, 成功后内存同步移除该行。
+const deleteSingleItem = async (item) => {
+  if (!item || item.id == null) return
+  const id = item.id
+  const label = item.word || item.phrase || ''
+  try {
+    await showConfirmDialog({
+      title: resourceType.value === 'phrase' ? '删除短语' : '删除单词',
+      message: `确定删除 "${label}" 吗? 已积累的学习/复习状态和标签关联会一并清除, 不可恢复.`,
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+      confirmButtonColor: '#ee0a24',
+    })
+  } catch {
+    return // 用户取消, 保持打开态由用户自行收起
+  }
+  try {
+    const resp = resourceType.value === 'phrase'
+      ? await deleteWordPhrase({ id })
+      : await deleteWord(id)
+    if (resp.code === 0) {
+      if (resourceType.value === 'phrase') removePhrasesFromMemory([id])
+      else removeWordsFromMemory([id])
+      swipeRefs.delete(id)
+      showToast(`已删除 "${label}"`)
+    } else {
+      showToast(resp.message || '删除失败, 请重试')
+    }
+  } catch (err) {
+    console.error('删除失败:', err)
+    showToast('网络错误, 请稍后重试')
+  }
+}
+
+// 多选批量删除: 确认后按 resourceType 调批删, 成功后内存同步移除并退出多选。
+const confirmBatchDelete = async () => {
+  if (batchDeleting.value || selectedIds.value.size === 0) return
+  const ids = [...selectedIds.value]
+  const isPhrase = resourceType.value === 'phrase'
+  try {
+    await showConfirmDialog({
+      title: isPhrase ? '批量删除短语' : '批量删除单词',
+      message: `确定删除选中的 ${ids.length} 项吗? 已积累的学习/复习状态和标签关联会一并清除, 不可恢复.`,
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+      confirmButtonColor: '#ee0a24',
+    })
+  } catch {
+    return // 用户取消
+  }
+  try {
+    batchDeleting.value = true
+    const resp = isPhrase ? await batchDeleteWordPhrase(ids) : await batchDeleteWord(ids)
+    if (resp.code === 0) {
+      if (isPhrase) removePhrasesFromMemory(ids)
+      else removeWordsFromMemory(ids)
+      const n = resp?.deleted ?? ids.length
+      exitSelectMode()
+      showToast(`已删除 ${n} 项`)
+    } else {
+      showToast(resp.message || '删除失败, 请重试')
+    }
+  } catch (err) {
+    console.error('批量删除失败:', err)
+    showToast('网络错误, 请稍后重试')
+  } finally {
+    batchDeleting.value = false
+  }
+}
+
+// ========== 行点击 / 左滑三按钮 ==========
+// 行 van-cell 点击: 多选下勾选; 否则统一进单词/短语详情(三视图一致)。
+// 若该行正展开着左滑按钮, 点一下先收起、不进详情。
+const onRowClick = (item) => {
+  if (selectMode.value) {
+    toggleItemSelect(item.id)
+    return
+  }
+  if (openedRowId.value === item.id) {
+    closeAllRows()
+    return
+  }
+  if (resourceType.value === 'phrase') selectPhrase(item.id)
+  else selectWord(item.id)
+}
+
+// 左滑三按钮: 点击后先收起该行, 再复用现有业务弹窗/删除逻辑。
+const onActionStatus = (item) => {
+  closeAllRows()
+  openStatusModal(item)
+}
+const onActionTag = (item) => {
+  closeAllRows()
+  openTagModal(item)
+}
+const onActionDelete = (item) => {
+  closeAllRows()
+  deleteSingleItem(item)
 }
 
 // ========== 初始化 ==========
@@ -2055,43 +2478,45 @@ onMounted(async () => {
   -webkit-font-smoothing: antialiased;
 }
 
-/* ---- brand header (cool gradient, editorial lockup) ---- */
+/* ---- brand header — compressed to a slim title strip ---- */
 .dictionary-header {
   background: linear-gradient(118deg, var(--es-grad-a) 0%, var(--es-primary) 56%, var(--es-teal) 130%);
-  padding: 38px 22px 30px;
+  padding: 14px 20px 13px;
   color: #fff;
   position: relative;
   overflow: hidden;
-  border-bottom-left-radius: 26px;
-  border-bottom-right-radius: 26px;
-  box-shadow: 0 14px 34px -18px rgba(25, 137, 250, .55);
+  border-bottom-left-radius: 20px;
+  border-bottom-right-radius: 20px;
+  box-shadow: 0 10px 26px -18px rgba(25, 137, 250, .55);
 
   /* one soft drifting glow — the single restrained accent gesture */
   .header-glow {
     position: absolute;
-    width: 240px; height: 240px;
-    top: -110px; right: -70px;
+    width: 200px; height: 200px;
+    top: -120px; right: -60px;
     border-radius: 50%;
-    background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, .34), rgba(255, 255, 255, 0) 66%);
+    background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, .30), rgba(255, 255, 255, 0) 66%);
     pointer-events: none;
     animation: dictGlow 17s var(--es-ease) infinite alternate;
   }
 
-  .page-eyebrow {
-    display: inline-block;
-    font-size: 11px;
-    letter-spacing: .22em;
-    text-transform: uppercase;
-    font-weight: 600;
-    color: rgba(255, 255, 255, .82);
-    margin-bottom: 10px;
+  /* slim one-line lockup: eyebrow · title */
+  .header-bar {
+    display: flex; align-items: baseline; gap: 10px;
     position: relative; z-index: 1;
   }
 
+  .page-eyebrow {
+    font-size: 10px;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: rgba(255, 255, 255, .78);
+  }
+
   .page-title {
-    font-size: 32px; font-weight: 800; margin-bottom: 10px;
-    letter-spacing: -.01em; line-height: 1.05;
-    position: relative; z-index: 1;
+    font-size: 20px; font-weight: 800;
+    letter-spacing: -.01em; line-height: 1.1;
 
     .accent {
       color: #fff;
@@ -2099,24 +2524,11 @@ onMounted(async () => {
       &::after {
         content: '';
         position: absolute;
-        left: 0; right: 0; bottom: 2px;
-        height: 8px; border-radius: 4px;
+        left: 0; right: 0; bottom: 1px;
+        height: 6px; border-radius: 3px;
         background: rgba(255, 255, 255, .26);
         z-index: -1;
       }
-    }
-  }
-
-  .page-subtitle {
-    display: flex; align-items: center; gap: 12px;
-    font-size: 14px; letter-spacing: .02em;
-    color: rgba(255, 255, 255, .9);
-    position: relative; z-index: 1;
-
-    .rule {
-      width: 30px; height: 2px; border-radius: 2px;
-      background: rgba(255, 255, 255, .85);
-      flex: 0 0 auto;
     }
   }
 }
@@ -2125,8 +2537,126 @@ onMounted(async () => {
   to   { transform: translate(-22px, 26px) scale(1.12); }
 }
 
+/* ---- 工具栏: 常显搜索栏 + 视图下划线 Tab ---- */
+.dictionary-toolbar {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 12px 14px 0;
+  position: relative;
+  z-index: 2;
+}
+
+/* 搜索栏: 左侧 词/短语 切换 + 右侧前缀搜索框 */
+.search-bar {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  height: 40px;
+}
+
+.resource-toggle {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0 12px;
+  border-radius: 12px;
+  background: linear-gradient(118deg, var(--es-grad-a) 0%, var(--es-primary) 100%);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  box-shadow: 0 6px 14px -8px rgba(25, 137, 250, .7);
+  transition: transform 0.15s var(--es-ease), box-shadow 0.2s var(--es-ease);
+
+  .rt-label { letter-spacing: .04em; }
+  .rt-caret { font-size: 13px; opacity: .85; }
+  &:active { transform: scale(0.96); }
+}
+
+.search-field {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 12px;
+  border-radius: 12px;
+  background: var(--es-surface);
+  border: 1px solid var(--es-hair);
+  box-shadow: var(--es-shadow-soft);
+
+  .sf-icon { color: var(--es-ink-3); font-size: 16px; flex: 0 0 auto; }
+  .sf-clear { color: var(--es-ink-3); font-size: 16px; flex: 0 0 auto; cursor: pointer; }
+
+  .sf-input {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    border: 0;
+    outline: none;
+    background: transparent;
+    font-size: 15px;
+    color: var(--es-ink);
+    /* 去掉移动端 search 类型自带的清除/装饰按钮, 用自定义 clear 图标 */
+    -webkit-appearance: none;
+    appearance: none;
+
+    &::placeholder { color: var(--es-ink-3); }
+    &::-webkit-search-cancel-button,
+    &::-webkit-search-decoration { -webkit-appearance: none; appearance: none; }
+  }
+}
+
+/* 视图下划线 Tab + 多选入口 */
+.view-tabs {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12px;
+  border-bottom: 1px solid var(--es-hair);
+}
+.view-tabs-track {
+  display: flex;
+  align-items: flex-end;
+  gap: 22px;
+}
+.view-tab {
+  position: relative;
+  padding: 8px 2px 9px;
+  cursor: pointer;
+  user-select: none;
+
+  .vt-label {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--es-ink-2);
+    transition: color 0.2s var(--es-ease), font-weight 0.2s var(--es-ease);
+  }
+  /* 选中项底部一条主色短下划线 */
+  .vt-underline {
+    position: absolute;
+    left: 50%;
+    bottom: -1px;
+    width: 0;
+    height: 3px;
+    border-radius: 3px 3px 0 0;
+    background: linear-gradient(90deg, var(--es-grad-a), var(--es-primary));
+    transform: translateX(-50%);
+    transition: width 0.22s var(--es-ease);
+  }
+
+  &.active {
+    .vt-label { color: var(--es-ink); font-weight: 700; }
+    .vt-underline { width: 60%; }
+  }
+  &:active .vt-label { color: var(--es-primary); }
+}
+
 .dictionary-content {
-  padding: 18px 14px 40px;
+  padding: 12px 14px 40px;
   max-width: 800px;
   margin: 0 auto;
   position: relative;
@@ -2135,7 +2665,8 @@ onMounted(async () => {
 }
 
 .alphabetical-word-list {
-  max-height: calc(100vh - 200px);
+  /* 视口高度 减去: 品牌条 + 工具栏(搜索栏+Tab) + 内容内边距 + 底部 tabbar */
+  max-height: calc(100vh - 250px);
   overflow-y: auto;
   padding-bottom: 24px;
   position: relative;
@@ -2169,18 +2700,6 @@ onMounted(async () => {
   &:active { transform: scale(0.95); }
   .van-icon { color: white; font-weight: bold; }
 }
-
-.search-fab {
-  position: fixed; bottom: 140px; right: 20px;
-  width: 56px; height: 56px;
-  background: var(--es-surface);
-  border-radius: 50%; display: flex; align-items: center; justify-content: center;
-  box-shadow: var(--es-shadow-card); border: 1px solid var(--es-hair);
-  cursor: pointer; transition: transform .25s var(--es-ease), box-shadow .25s var(--es-ease); z-index: 1000;
-  color: var(--es-primary);
-}
-.search-fab:hover { transform: translateY(-2px) scale(1.04); box-shadow: 0 16px 30px -10px rgba(20, 30, 50, .25); }
-.search-fab:active { transform: scale(0.95); }
 
 /* 字母分组标签 — editorial eyebrow */
 .letter-tag {
@@ -2291,31 +2810,6 @@ onMounted(async () => {
 .page-slide-leave-active .alphabetical-word-list,
 .page-slide-leave-active .word-detail { box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05); }
 
-/* 显示模式切换栏样式 */
-.header-content { display: flex; justify-content: space-between; align-items: flex-end; width: 100%; position: relative; z-index: 1; }
-.header-text { flex: 1; min-width: 0; }
-
-.display-mode-switcher {
-  display: flex;
-  background: rgba(255, 255, 255, 0.18);
-  border-radius: 999px; padding: 4px;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  flex: 0 0 auto;
-
-  .mode-option {
-    padding: 7px 14px; border-radius: 999px; font-size: 13px;
-    font-weight: 600; cursor: pointer; transition: all 0.25s var(--es-ease);
-    color: rgba(255, 255, 255, 0.85); white-space: nowrap;
-
-    &.active {
-      background: #fff; color: var(--es-primary);
-      box-shadow: 0 4px 10px -3px rgba(0, 0, 0, 0.22);
-    }
-    &:hover:not(.active) { background: rgba(255, 255, 255, 0.12); color: white; }
-  }
-}
-
 /* 状态和标签模式的单词项样式 */
 .word-item {
   &.clickable {
@@ -2395,37 +2889,6 @@ onMounted(async () => {
   }
 }
 
-/* 右侧书签切换 */
-.resource-switcher {
-  position: fixed; right: 10px; top: 50%; transform: translateY(-50%);
-  display: flex; flex-direction: column; align-items: flex-end;
-  gap: 10px; z-index: 1000;
-}
-
-.bookmark-option {
-  min-width: 64px; padding: 9px 14px;
-  border-top-left-radius: 14px; border-bottom-left-radius: 14px;
-  border-top-right-radius: 0; border-bottom-right-radius: 0;
-  background: rgba(255, 255, 255, 0.9); color: var(--es-ink-2);
-  font-weight: 600; letter-spacing: 0.3px; text-align: center;
-  cursor: pointer; backdrop-filter: blur(8px);
-  border: 1px solid var(--es-hair);
-  box-shadow: 0 8px 20px -10px rgba(20, 30, 50, .25);
-  transition: all 0.25s var(--es-ease); opacity: 0.92; user-select: none;
-
-  &:hover { opacity: 1; transform: translateX(-2px); }
-
-  &.active {
-    background: linear-gradient(118deg, var(--es-grad-a) 0%, var(--es-primary) 56%, var(--es-teal) 130%);
-    border-color: transparent; color: #fff;
-    box-shadow: 0 12px 26px -10px rgba(25, 137, 250, .55); opacity: 1;
-  }
-}
-
-@media (max-width: 375px) {
-  .bookmark-option { min-width: 64px; padding: 8px 12px; font-size: 12px; }
-}
-
 /* A-Z 首字母快速跳转条 (左侧, 通讯录风格) */
 .az-index-bar {
   position: fixed;
@@ -2475,12 +2938,6 @@ onMounted(async () => {
 @media (max-width: 375px) {
   .az-index-item { font-size: 13px; width: 22px; }
 }
-
-.search-modal { background: var(--es-surface); border-radius: var(--es-r-card); }
-.search-modal .modal-header { display:flex; justify-content:space-between; align-items:center; padding:16px; border-bottom:1px solid var(--es-hair); }
-.search-modal .close-btn { font-size:20px; color: var(--es-ink-3); }
-.search-modal .modal-content { padding:16px; }
-.search-results { margin-top:12px; }
 
 /* 标签模式·多标签筛选面板 — soft white card */
 .tag-filter-panel {
@@ -2549,9 +3006,139 @@ onMounted(async () => {
   color: var(--es-ink-2);
 }
 
+/* ---- 多选入口 (下划线 Tab 行最右端, 小文字按钮) ---- */
+.select-toggle {
+  flex: 0 0 auto;
+  align-self: center;
+  margin-bottom: 4px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  color: var(--es-ink-2);
+  background: transparent;
+  transition: color 0.2s var(--es-ease), background-color 0.2s var(--es-ease);
+
+  &.active {
+    color: var(--es-primary);
+    background: rgba(25, 137, 250, .1);
+  }
+  &:active { background: rgba(25, 137, 250, .07); }
+}
+@media (max-width: 375px) {
+  .view-tabs-track { gap: 16px; }
+  .select-toggle { padding: 5px 8px; font-size: 12px; }
+}
+
+/* ---- 行左滑容器: van-swipe-cell, right 插槽露出 [状态][标签][删除] ---- */
+.swipe-cell {
+  display: block;
+  background: var(--es-surface);
+}
+/* van-swipe-cell 默认插槽: checkbox + van-cell 横排 */
+.swipe-cell-body {
+  display: flex;
+  align-items: center;
+  background: var(--es-surface);
+}
+.swipe-cell-body .van-cell {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+}
+.row-checkbox {
+  flex: 0 0 auto;
+  padding-left: 16px;
+}
+/* 左滑露出的三按钮区: 状态(蓝) / 标签(青) / 删除(红), 整高贴合行 */
+.row-actions {
+  display: flex;
+  height: 100%;
+}
+.ra-btn {
+  height: 100%;
+  min-height: 100%;
+  padding: 0 16px;
+  border: none;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: filter 0.15s var(--es-ease);
+
+  &:active { filter: brightness(0.92); }
+}
+.ra-status { background: var(--es-primary, #1989fa); }
+.ra-tag    { background: #ff9800; }
+.ra-delete { background: #ee0a24; }
+
+/* ---- 多选底部操作条 (浮在 50px tabbar 之上) ---- */
+.select-action-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(50px + env(safe-area-inset-bottom, 0px));
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--es-surface);
+  border-top: 1px solid var(--es-hair);
+  box-shadow: 0 -8px 24px -12px rgba(20, 30, 50, 0.22);
+
+  .sab-left {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+    color: var(--es-ink);
+    font-size: 14px;
+    font-weight: 600;
+    flex: 0 0 auto;
+  }
+  .sab-count {
+    flex: 1;
+    text-align: center;
+    color: var(--es-ink-2);
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .sab-delete {
+    flex: 0 0 auto;
+    padding: 9px 22px;
+    border-radius: 999px;
+    background: #ee0a24;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    user-select: none;
+    transition: opacity 0.2s var(--es-ease), transform 0.15s var(--es-ease);
+
+    &:active:not(.disabled) { transform: scale(0.96); }
+    &.disabled {
+      opacity: 0.45;
+      pointer-events: none;
+    }
+  }
+}
+.select-bar-slide-enter-active,
+.select-bar-slide-leave-active { transition: transform 0.28s var(--es-ease), opacity 0.28s var(--es-ease); }
+.select-bar-slide-enter-from,
+.select-bar-slide-leave-to { transform: translateY(100%); opacity: 0; }
+
 @media (prefers-reduced-motion: reduce) {
   .dictionary-header .header-glow { animation: none !important; }
-  .add-word-fab, .search-fab, .mode-option, .bookmark-option,
-  .az-index-item, .word-item, .status-indicator { transition: none !important; }
+  .add-word-fab, .resource-toggle, .view-tab .vt-label, .view-tab .vt-underline,
+  .az-index-item, .word-item, .status-indicator, .select-toggle,
+  .ra-btn, .sab-delete { transition: none !important; }
 }
 </style>

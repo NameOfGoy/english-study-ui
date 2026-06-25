@@ -243,7 +243,8 @@ router.beforeEach((to, from, next) => {
   }
 
   // 如果已登录用户访问登录或注册页面，重定向到首页
-  if ((to.name === 'Login' || to.name === 'Register') && getToken()) {
+  // 必须同时校验 token 未过期: 否则退出后残留/过期 token 会把人从 /register 弹回 /dashboard
+  if ((to.name === 'Login' || to.name === 'Register') && getToken() && !isTokenExpired()) {
     next('/dashboard')
     return
   }

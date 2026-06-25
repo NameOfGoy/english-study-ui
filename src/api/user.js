@@ -19,6 +19,15 @@ export function register(data) {
   })
 }
 
+// 修改密码 (JWT, token 由请求层自动带) —— data = { old_password, new_password }
+export function changePassword(data) {
+  return request({
+    url: '/v1/user/password',
+    method: 'post',
+    data
+  })
+}
+
 // 获取用户信息
 export function getUserInfo(id) {
   return request({

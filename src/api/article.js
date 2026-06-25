@@ -65,3 +65,17 @@ export function getArticleWordsInfo(words) {
     data: { words }
   })
 }
+
+// 删除收录文章(连同 article_words)。后端成功返回 {code:0}; code!=0 由响应拦截器统一 toast。
+export function deleteArticle(id) {
+  return request({
+    url: '/v1/practise/article/delete',
+    method: 'post',
+    data: { id }
+  })
+}
+
+// 批量删除收录文章。返回体含 deleted(实际删除篇数)。
+export function batchDeleteArticle(ids) {
+  return request({ url: '/v1/practise/article/batch-delete', method: 'post', data: { ids } })
+}

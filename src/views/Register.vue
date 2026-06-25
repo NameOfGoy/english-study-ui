@@ -33,7 +33,7 @@
 
     <!-- ===== 注册表单 ===== -->
     <div class="register-form">
-      <van-form @submit="handleRegister">
+      <van-form autocomplete="off" @submit="handleRegister">
         <van-field
           v-model="formData.account"
           name="account"
@@ -41,6 +41,7 @@
           placeholder="请输入账号"
           :rules="accountRules"
           left-icon="user-o"
+          autocomplete="off"
           clearable
         />
 
@@ -49,9 +50,10 @@
           type="password"
           name="password"
           label="密码"
-          placeholder="请输入密码（6-20位）"
+          placeholder="请输入密码（8-64位）"
           :rules="passwordRules"
           left-icon="lock"
+          autocomplete="new-password"
           clearable
         />
 
@@ -63,12 +65,14 @@
           placeholder="请再次输入密码"
           :rules="confirmPasswordRules"
           left-icon="lock"
+          autocomplete="new-password"
           clearable
         />
 
         <van-field
           v-model="formData.name"
           name="name"
+          autocomplete="off"
           label="用户名"
           placeholder="请输入用户名"
           :rules="nameRules"
@@ -79,6 +83,7 @@
         <van-field
           v-model="formData.phone"
           name="phone"
+          autocomplete="off"
           label="手机号"
           placeholder="请输入手机号"
           :rules="phoneRules"
@@ -89,6 +94,7 @@
         <van-field
           v-model="formData.email"
           name="email"
+          autocomplete="off"
           label="邮箱"
           placeholder="请输入邮箱地址"
           :rules="emailRules"
@@ -126,6 +132,7 @@ import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import { register } from '@/api/user'
+import { validatePasswordStrength } from '@/utils/password'
 
 export default {
   name: 'Register',
@@ -151,7 +158,8 @@ export default {
     
     const passwordRules = [
       { required: true, message: '请输入密码' },
-      { min: 6, max: 20, message: '密码长度为6-20位' }
+      // 与后端密码强度一致: 返回 true=通过, 返回字符串=错误文案 (作为 message)
+      { validator: (v) => { const r = validatePasswordStrength(v); return r === true ? true : r } }
     ]
     
     const confirmPasswordRules = [

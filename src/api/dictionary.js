@@ -36,6 +36,15 @@ export function deleteWord(id) {
   })
 }
 
+// 批量删除单词
+export function batchDeleteWord(ids) {
+  return request({
+    url: '/v1/dictionary/word/batch-delete',
+    method: 'post',
+    data: { ids }
+  })
+}
+
 // 更新单词
 export function updateWord(data) {
   return request({
@@ -250,6 +259,15 @@ export function deleteWordPhrase(id) {
     url: '/v1/dictionary/phrase/delete',
     method: 'delete',
     data: { id }
+  })
+}
+
+// 批量删除短语
+export function batchDeleteWordPhrase(ids) {
+  return request({
+    url: '/v1/dictionary/phrase/batch-delete',
+    method: 'post',
+    data: { ids }
   })
 }
 

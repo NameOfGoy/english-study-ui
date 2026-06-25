@@ -62,6 +62,12 @@
               is-link
               @click="editUserField('email', '邮箱', userInfo.email)"
             />
+            <van-cell
+              title="修改密码"
+              icon="lock"
+              is-link
+              @click="openPasswordPopup"
+            />
           </van-cell-group>
         </div>
       </section>
@@ -157,6 +163,55 @@
         </div>
       </div>
     </van-popup>
+
+    <!-- 修改密码弹窗 -->
+    <van-popup
+      v-model:show="showPasswordPopup"
+      position="bottom"
+      :style="{ height: '52%' }"
+    >
+      <div class="edit-popup pwd-popup">
+        <div class="popup-header">
+          <van-button type="default" size="small" @click="cancelPassword">取消</van-button>
+          <h3>修改密码</h3>
+          <van-button type="primary" size="small" :loading="pwdLoading" @click="submitPassword">保存</van-button>
+        </div>
+        <div class="popup-content">
+          <van-form ref="pwdForm" autocomplete="off" @submit="submitPassword">
+            <van-field
+              v-model="pwdData.oldPassword"
+              type="password"
+              name="oldPassword"
+              label="原密码"
+              placeholder="请输入原密码"
+              :rules="oldPasswordRules"
+              autocomplete="current-password"
+              clearable
+            />
+            <van-field
+              v-model="pwdData.newPassword"
+              type="password"
+              name="newPassword"
+              label="新密码"
+              placeholder="请输入新密码（8-64位）"
+              :rules="newPasswordRules"
+              autocomplete="new-password"
+              clearable
+            />
+            <van-field
+              v-model="pwdData.confirmPassword"
+              type="password"
+              name="confirmPassword"
+              label="确认新密码"
+              placeholder="请再次输入新密码"
+              :rules="confirmNewPasswordRules"
+              autocomplete="new-password"
+              clearable
+            />
+          </van-form>
+        </div>
+      </div>
+    </van-popup>
   </div>
 </template>
 
@@ -164,9 +219,10 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast, showConfirmDialog } from 'vant'
-import { getUserInfo, updateUserInfo, updateUserAvatar } from '@/api/user'
-import { getUserInfo as getLocalUserInfo, setUserInfo, clearAllData, isAdmin } from '@/utils/auth'
+import { getUserInfo, updateUserInfo, updateUserAvatar, changePassword } from '@/api/user'
+import { getUserInfo as getLocalUserInfo, setUserInfo, clearAllData, removeSavedCredentials, isAdmin } from '@/utils/auth'
 import { getResourceUrl } from '@/utils/request'
+import { validatePasswordStrength } from '@/utils/password'
 import ImportTaskList from '@/components/profile/ImportTaskList.vue'
 
 export default {
@@ -191,6 +247,29 @@ export default {
     const editTitle = ref('')
     const editValue = ref('')
     const loading = ref(false)
+
+    // 修改密码相关
+    const showPasswordPopup = ref(false)
+    const pwdLoading = ref(false)
+    const pwdForm = ref(null)
+    const pwdData = reactive({
+      oldPassword: '',
+      newPassword: '',
+      confirmPassword: ''
+    })
+
+    const oldPasswordRules = [
+      { required: true, message: '请输入原密码' }
+    ]
+    const newPasswordRules = [
+      { required: true, message: '请输入新密码' },
+      // 与后端密码强度一致: 返回 true=通过, 返回字符串=错误文案
+      { validator: (v) => { const r = validatePasswordStrength(v); return r === true ? true : r } }
+    ]
+    const confirmNewPasswordRules = [
+      { required: true, message: '请确认新密码' },
+      { validator: (v) => v === pwdData.newPassword ? true : '两次输入的新密码不一致' }
+    ]
     
     // 滑动手势相关
     const touchStartX = ref(0)
@@ -340,6 +419,68 @@ export default {
       }
     }
     
+    // 打开修改密码弹窗
+    const openPasswordPopup = () => {
+      pwdData.oldPassword = ''
+      pwdData.newPassword = ''
+      pwdData.confirmPassword = ''
+      showPasswordPopup.value = true
+    }
+
+    // 取消修改密码
+    const cancelPassword = () => {
+      showPasswordPopup.value = false
+      pwdData.oldPassword = ''
+      pwdData.newPassword = ''
+      pwdData.confirmPassword = ''
+    }
+
+    // 提交修改密码
+    const submitPassword = async () => {
+      if (pwdLoading.value) return
+
+      // 手动触发表单校验 (保存按钮不是 native submit, 走 van-form 的 validate)
+      try {
+        await pwdForm.value?.validate()
+      } catch (e) {
+        return
+      }
+
+      // 新密码不能与原密码相同(后端也会拦, 这里给即时提示)
+      if (pwdData.newPassword === pwdData.oldPassword) {
+        showToast({ message: '新密码不能与原密码相同', type: 'fail' })
+        return
+      }
+
+      try {
+        pwdLoading.value = true
+
+        await changePassword({
+          old_password: pwdData.oldPassword,
+          new_password: pwdData.newPassword
+        })
+
+        showToast({
+          message: '密码修改成功，请重新登录',
+          type: 'success'
+        })
+
+        cancelPassword()
+
+        // 改密后令牌可能仍有效, 但出于安全让用户用新密码重新登录;
+        // 同时清掉"记住密码"里已失效的旧密码, 免得登录页自动填回旧密码导致一次登录失败
+        clearAllData()
+        removeSavedCredentials()
+        router.push('/login')
+
+      } catch (error) {
+        console.error('修改密码失败:', error)
+        // 失败信息 (原密码错误/强度不达标等) 由 request.js 响应拦截器统一 toast
+      } finally {
+        pwdLoading.value = false
+      }
+    }
+
     // 退出登录
     const handleLogout = async () => {
       try {
@@ -433,6 +574,16 @@ export default {
       userInfo,
       showEditPopup,
       showAvatarPopup,
+      showPasswordPopup,
+      pwdLoading,
+      pwdForm,
+      pwdData,
+      oldPasswordRules,
+      newPasswordRules,
+      confirmNewPasswordRules,
+      openPasswordPopup,
+      cancelPassword,
+      submitPassword,
       editUserField,
       editTitle,
       editValue,
@@ -775,6 +926,15 @@ export default {
         color: var(--es-ink);
       }
     }
+  }
+}
+
+/* 修改密码弹窗: 三个字段堆叠, 各自卡片之间留间距 */
+.pwd-popup {
+  .popup-content :deep(.van-form) {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
   }
 }
 
